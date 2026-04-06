@@ -410,7 +410,7 @@ tr.clickable:hover td{color:var(--text);background:rgba(212,168,83,.03)}
       <div class="setting-card">
         <h4>📊 Google Sheets Backend</h4>
         <p>Deploy the Apps Script as a Web App and paste the URL here. All data syncs to your Google Sheet automatically.</p>
-        <div class="fg"><label>Web App URL</label><input type="url" id="cfgSheetURL" placeholder="https://script.google.com/macros/s/.../exec"></div>
+        <div class="fg"><label>Web App URL</label><input type="url" id="cfgSheetURL" value="https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec" readonly style="opacity:.7;cursor:not-allowed" title="Hardcoded — edit file to change"></div>
         <div style="display:flex;gap:.5rem;align-items:center">
           <button class="btn btn-gold btn-sm" onclick="testSheetConnection()">Test Connection</button>
           <button class="btn btn-outline btn-sm" onclick="syncFromSheet()">↓ Pull Data</button>
@@ -596,8 +596,19 @@ let currentModal = null;
 
 function loadData(){ DATA = JSON.parse(localStorage.getItem(DB_KEY)||'null') || JSON.parse(JSON.stringify(DEFAULTS)); }
 function saveData(){ localStorage.setItem(DB_KEY, JSON.stringify(DATA)); }
-function loadConfig(){ CONFIG = JSON.parse(localStorage.getItem(CFG_KEY)||'null') || {sheetURL:'',apiKey:''}; }
-function saveConfig(){ localStorage.setItem(CFG_KEY, JSON.stringify(CONFIG)); }
+function loadConfig(){
+  const saved = JSON.parse(localStorage.getItem(CFG_KEY)||'null') || {};
+  // Always keep hardcoded Sheet URL — never allow it to be blank
+  CONFIG.sheetURL = 'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec';
+  CONFIG.apiKey   = saved.apiKey || '';
+  // Merge any other saved settings
+  Object.assign(CONFIG, saved, { sheetURL: 'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec' });
+}
+function saveConfig(){
+  // Always preserve hardcoded Sheet URL
+  CONFIG.sheetURL = 'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec';
+  localStorage.setItem(CFG_KEY, JSON.stringify(CONFIG));
+}
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function fmt(n,cur='₹'){return cur+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:0})}
 function fmtPct(n){return (n>=0?'+':'')+Number(n||0).toFixed(1)+'%'}
@@ -2382,7 +2393,7 @@ function renderScanHistory(){
 //  SETTINGS
 // ═══════════════════════════════════════════
 function loadSettingsUI(){
-  document.getElementById('cfgSheetURL').value = CONFIG.sheetURL||'';
+  document.getElementById('cfgSheetURL').value = 'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec';
   document.getElementById('cfgAPIKey').value = CONFIG.apiKey||'';
   if(CONFIG.sheetURL) setSyncStatus('ok');
   renderScanHistory();
