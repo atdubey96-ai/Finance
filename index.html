@@ -249,7 +249,7 @@ tr.clickable:hover td{color:var(--text);background:rgba(212,168,83,.03)}
   <div class="tab" data-t="mf">Mutual Funds</div>
   <div class="tab" data-t="income">Income</div>
   <div class="tab" data-t="scanner">📷 Scanner</div>
-  <div class="tab" data-t="settings">Settings</div>
+
 </div></div>
 
 <div class="main">
@@ -420,11 +420,21 @@ tr.clickable:hover td{color:var(--text);background:rgba(212,168,83,.03)}
       </div>
       <div class="setting-card" style="border-color:rgba(52,211,153,.2)">
         <h4>📈 Angel One SmartAPI</h4>
-        <p>Live NSE prices for your entire portfolio. Auto-connected using your credentials.</p>
+        <p>Live NSE prices for your entire portfolio. MPIN is stored locally and never shared.</p>
         <div style="display:flex;align-items:center;gap:.75rem;margin:.75rem 0;padding:.6rem .9rem;background:var(--bg3);border-radius:8px">
           <span id="aoStatusDot" style="width:10px;height:10px;border-radius:50%;background:var(--text3);flex-shrink:0"></span>
           <span id="aoStatusText" style="font-size:.8rem;color:var(--text2)">Checking connection…</span>
-          <button class="btn btn-outline btn-sm" onclick="aoInit()" style="margin-left:auto">Reconnect</button>
+          <button class="btn btn-outline btn-sm" onclick="aoReconnect()" style="margin-left:auto">Reconnect</button>
+        </div>
+        <div class="fg" style="margin-top:.75rem;margin-bottom:.5rem">
+          <label>MPIN (saved locally, auto-used on load)</label>
+          <div style="display:flex;gap:.5rem">
+            <input type="password" id="cfgMPIN" placeholder="Enter your Angel One MPIN"
+              style="flex:1;padding:.5rem .75rem;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:.9rem"
+              value="">
+            <button class="btn btn-gold btn-sm" onclick="saveMPIN()">Save & Connect</button>
+          </div>
+          <div style="font-size:.7rem;color:var(--text3);margin-top:.35rem">Stored in browser localStorage only · never sent anywhere except Angel One</div>
         </div>
         <div style="font-size:.72rem;color:var(--text3)">Client ID: AAAA002545 &nbsp;·&nbsp; API: aktMsqo3</div>
       </div>
@@ -590,7 +600,7 @@ const DEFAULTS = {
 };
 
 let DATA = {};
-let CONFIG = { sheetURL:'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec', apiKey:'' };
+let CONFIG = { sheetURL:'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec', apiKey:'', mpin:'9816' };
 let CHARTS = {};
 let currentModal = null;
 
@@ -598,14 +608,14 @@ function loadData(){ DATA = JSON.parse(localStorage.getItem(DB_KEY)||'null') || 
 function saveData(){ localStorage.setItem(DB_KEY, JSON.stringify(DATA)); }
 function loadConfig(){
   const saved = JSON.parse(localStorage.getItem(CFG_KEY)||'null') || {};
-  // Always keep hardcoded Sheet URL — never allow it to be blank
   CONFIG.sheetURL = 'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec';
   CONFIG.apiKey   = saved.apiKey || '';
-  // Merge any other saved settings
+  CONFIG.mpin     = saved.mpin   || '';
   Object.assign(CONFIG, saved, { sheetURL: 'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec' });
+  // Pre-load MPIN into AO object if saved
+  if (CONFIG.mpin) AO.mpin = CONFIG.mpin;
 }
 function saveConfig(){
-  // Always preserve hardcoded Sheet URL
   CONFIG.sheetURL = 'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec';
   localStorage.setItem(CFG_KEY, JSON.stringify(CONFIG));
 }
@@ -2395,6 +2405,8 @@ function renderScanHistory(){
 function loadSettingsUI(){
   document.getElementById('cfgSheetURL').value = 'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec';
   document.getElementById('cfgAPIKey').value = CONFIG.apiKey||'';
+  const mpinEl = document.getElementById('cfgMPIN');
+  if (mpinEl) mpinEl.value = CONFIG.mpin ? '••••' : '';
   if(CONFIG.sheetURL) setSyncStatus('ok');
   renderScanHistory();
 }
@@ -2520,7 +2532,7 @@ const AO = {
   token:      null,
   refreshToken: null,
   tokenExpiry:  0,
-  mpin:       null,   // entered by user each session, never stored
+  mpin:       null,   // loaded from settings or prompted
   base: 'https://ao-proxy.iocscadasync.workers.dev'
 };
 
@@ -3126,6 +3138,28 @@ document.addEventListener('click', e => {
     dd.style.display = 'none';
   }
 });
+
+function saveMPIN(){
+  const el = document.getElementById('cfgMPIN');
+  if (!el) return;
+  const val = el.value.trim();
+  if (!val || val === '••••') { toast('Enter your MPIN first', 'err'); return; }
+  CONFIG.mpin = val;
+  AO.mpin     = val;
+  AO.token    = null; // force re-login with new MPIN
+  AO.tokenExpiry = 0;
+  saveConfig();
+  el.value = '••••';
+  toast('MPIN saved ✓ Connecting to Angel One…');
+  aoInit();
+}
+
+function aoReconnect(){
+  AO.mpin  = CONFIG.mpin || null;
+  AO.token = null;
+  AO.tokenExpiry = 0;
+  aoInit();
+}
 
 // ═══════════════════════════════════════════
 //  INIT
