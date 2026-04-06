@@ -610,10 +610,10 @@ function loadConfig(){
   const saved = JSON.parse(localStorage.getItem(CFG_KEY)||'null') || {};
   CONFIG.sheetURL = 'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec';
   CONFIG.apiKey   = saved.apiKey || '';
-  CONFIG.mpin     = saved.mpin   || '';
-  Object.assign(CONFIG, saved, { sheetURL: 'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec' });
-  // Pre-load MPIN into AO object if saved
-  if (CONFIG.mpin) AO.mpin = CONFIG.mpin;
+  // MPIN: use saved value, fallback to hardcoded default — NEVER prompt if we have it
+  CONFIG.mpin     = saved.mpin || '9816';
+  // Always inject into AO immediately so login never needs to prompt
+  AO.mpin = CONFIG.mpin;
 }
 function saveConfig(){
   CONFIG.sheetURL = 'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec';
@@ -2602,7 +2602,11 @@ async function aoGenerateTOTP(secret) {
 // ── Login & get JWT token ──
 async function aoLogin() {
   if (AO.token && Date.now() < AO.tokenExpiry) return AO.token;
-  // Ask for MPIN if not already provided this session
+  // Use saved MPIN — only prompt if truly missing
+  if (!AO.mpin) {
+    // Try loading from config one more time
+    AO.mpin = CONFIG.mpin || null;
+  }
   if (!AO.mpin) {
     AO.mpin = await aoAskMPIN();
     if (!AO.mpin) throw new Error('MPIN not provided');
@@ -3165,6 +3169,15 @@ function aoReconnect(){
 //  INIT
 // ═══════════════════════════════════════════
 document.getElementById('liveDate').textContent = new Date().toLocaleDateString('en-IN',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+
+// Clear stale config that might not have MPIN
+(function(){
+  const saved = JSON.parse(localStorage.getItem('wcc_config')||'null');
+  if (saved && !saved.mpin) {
+    saved.mpin = '9816';
+    localStorage.setItem('wcc_config', JSON.stringify(saved));
+  }
+})();
 
 loadData();
 loadConfig();
