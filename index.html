@@ -1,0 +1,3137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wealth Command Center — Ashutosh</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#090a0e;--bg2:#101118;--bg3:#181924;--bg4:#20212f;--bg5:#282a3a;
+--gold:#d4a853;--gold2:#e8c170;--gold3:#f0d48a;--golddim:rgba(212,168,83,.15);
+--green:#34d399;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;
+--cyan:#22d3ee;--orange:#fb923c;--pink:#f472b6;--lime:#a3e635;
+--text:#eae8e4;--text2:#8b8b9a;--text3:#55556a;
+--border:rgba(212,168,83,.1);--glass:rgba(16,17,24,.85);
+--radius:14px;--shadow:0 8px 32px rgba(0,0,0,.5);
+}
+html{font-size:13.5px}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 10%,rgba(212,168,83,.03),transparent 60%),radial-gradient(ellipse at 80% 90%,rgba(96,165,250,.02),transparent 60%);pointer-events:none;z-index:0}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--gold);border-radius:3px}
+a{color:var(--gold);text-decoration:none}
+
+/* ====== HEADER ====== */
+.hdr{position:sticky;top:0;z-index:200;backdrop-filter:blur(24px);background:rgba(9,10,14,.82);border-bottom:1px solid var(--border);padding:0 1.5rem}
+.hdr-in{max-width:1640px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:58px}
+.logo{display:flex;align-items:center;gap:.7rem}
+.logo-i{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold2));display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--bg);font-size:1rem}
+.logo-t{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:600;background:linear-gradient(135deg,var(--gold),var(--gold3));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hdr-r{display:flex;align-items:center;gap:1rem}
+.hdr-r .dt{color:var(--text2);font-size:.78rem}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--text3);transition:background .3s}
+.sync-dot.ok{background:var(--green);box-shadow:0 0 8px rgba(52,211,153,.4)}
+.sync-dot.err{background:var(--red)}
+.sync-dot.loading{background:var(--orange);animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--purple));display:flex;align-items:center;justify-content:center;font-weight:600;font-size:.75rem;color:#fff;cursor:pointer}
+
+/* ====== TABS ====== */
+.tabs-w{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5rem;overflow-x:auto}
+.tabs-w::-webkit-scrollbar{height:0}
+.tabs{max-width:1640px;margin:0 auto;display:flex;gap:0}
+.tab{padding:.8rem 1.15rem;cursor:pointer;font-size:.75rem;font-weight:500;color:var(--text2);border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;letter-spacing:.4px;text-transform:uppercase;user-select:none}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* ====== MAIN ====== */
+.main{max-width:1640px;margin:0 auto;padding:1.25rem 1.5rem 3rem;position:relative;z-index:1}
+.tc{display:none;animation:fadeUp .35s ease}
+.tc.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ====== GRID / CARD ====== */
+.g{display:grid;gap:1rem}
+.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+.g23{grid-template-columns:2fr 1fr}.g32{grid-template-columns:3fr 2fr}
+@media(max-width:1100px){.g3,.g4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.g2,.g3,.g4,.g23,.g32{grid-template-columns:1fr}}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.3rem;position:relative;overflow:hidden;transition:border-color .3s}
+.card:hover{border-color:rgba(212,168,83,.22)}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(212,168,83,.15),transparent)}
+.card-glow{box-shadow:0 0 50px rgba(212,168,83,.04)}
+.ct{font-size:.7rem;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem}
+.cv{font-family:'Playfair Display',serif;font-size:1.65rem;font-weight:700;line-height:1.2}
+.cv.gold{background:linear-gradient(135deg,var(--gold),var(--gold3));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.badge{display:inline-flex;align-items:center;gap:.2rem;font-size:.72rem;margin-top:.4rem;padding:.15rem .55rem;border-radius:20px;font-weight:500}
+.up{color:var(--green);background:rgba(52,211,153,.1)}
+.dn{color:var(--red);background:rgba(248,113,113,.1)}
+.stitle{font-family:'Playfair Display',serif;font-size:1.1rem;margin:1.5rem 0 .8rem;display:flex;align-items:center;gap:.6rem}
+.stitle::before{content:'';width:3px;height:18px;background:var(--gold);border-radius:2px}
+
+/* ====== TABLE ====== */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:.65rem;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:.65rem .4rem;text-align:left;border-bottom:1px solid var(--border);font-weight:600}
+td{padding:.55rem .4rem;border-bottom:1px solid rgba(255,255,255,.025);font-size:.82rem;color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr.clickable{cursor:pointer;transition:background .15s}
+tr.clickable:hover td{color:var(--text);background:rgba(212,168,83,.03)}
+.tk{font-weight:600;color:var(--gold)}
+.pos{color:var(--green)}.neg{color:var(--red)}
+.pill{display:inline-block;padding:.12rem .45rem;border-radius:12px;font-size:.65rem;font-weight:500}
+.pill-g{background:rgba(52,211,153,.1);color:var(--green)}
+.pill-r{background:rgba(248,113,113,.1);color:var(--red)}
+.pill-b{background:rgba(96,165,250,.1);color:var(--blue)}
+.pill-o{background:rgba(251,146,60,.1);color:var(--orange)}
+.pill-p{background:rgba(167,139,250,.1);color:var(--purple)}
+.pill-gold{background:var(--golddim);color:var(--gold)}
+
+/* ====== CHART ====== */
+.chw{position:relative;width:100%}
+.chw.h250{height:250px}.chw.h300{height:300px}.chw.h200{height:200px}
+
+/* ====== BUTTONS ====== */
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:8px;font-size:.78rem;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .2s}
+.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--bg);box-shadow:0 4px 15px rgba(212,168,83,.25)}
+.btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(212,168,83,.35)}
+.btn-outline{background:none;border:1px solid var(--border);color:var(--text2)}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.35rem .7rem;font-size:.72rem}
+.btn-red{background:rgba(248,113,113,.15);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+.btn-red:hover{background:rgba(248,113,113,.25)}
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
+
+/* ====== MODAL ====== */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);z-index:500;display:none;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,.5)}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:1.2rem 1.5rem;border-bottom:1px solid var(--border)}
+.modal-hdr h3{font-family:'Playfair Display',serif;font-size:1.05rem}
+.modal-close{width:28px;height:28px;border-radius:6px;border:none;background:var(--bg4);color:var(--text2);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:var(--red);color:#fff}
+.modal-body{padding:1.5rem}
+.modal-foot{display:flex;justify-content:flex-end;gap:.5rem;padding:1rem 1.5rem;border-top:1px solid var(--border)}
+
+/* ====== FORM ====== */
+.fg{margin-bottom:1rem}
+.fg label{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:.35rem}
+.fg input,.fg select,.fg textarea{width:100%;padding:.55rem .75rem;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:.85rem;transition:border-color .2s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--gold)}
+.fg textarea{resize:vertical;min-height:60px}
+.fg select{cursor:pointer}
+.fg-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.fg-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
+
+/* ====== DETAIL PANEL ====== */
+.detail-panel{position:fixed;right:-480px;top:0;bottom:0;width:460px;background:var(--bg2);border-left:1px solid var(--border);z-index:400;transition:right .35s ease;overflow-y:auto;box-shadow:-10px 0 40px rgba(0,0,0,.4)}
+.detail-panel.open{right:0}
+.dp-hdr{display:flex;align-items:center;justify-content:space-between;padding:1.2rem 1.5rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:1}
+.dp-hdr h3{font-family:'Playfair Display',serif;font-size:1rem}
+.dp-body{padding:1.5rem}
+.dp-row{display:flex;justify-content:space-between;padding:.55rem 0;border-bottom:1px solid rgba(255,255,255,.025)}
+.dp-row:last-child{border:none}
+.dp-lbl{color:var(--text3);font-size:.8rem}
+.dp-val{font-weight:500;font-size:.85rem;text-align:right;max-width:60%}
+.dp-actions{display:flex;gap:.5rem;padding:1rem 1.5rem;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--bg2)}
+
+/* ====== SCANNER ====== */
+.drop-zone{border:2px dashed var(--border);border-radius:16px;padding:3rem 2rem;text-align:center;cursor:pointer;transition:all .3s;position:relative}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--gold);background:rgba(212,168,83,.04)}
+.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop-zone h4{font-family:'Playfair Display',serif;margin-bottom:.5rem;color:var(--text)}
+.drop-zone p{color:var(--text3);font-size:.82rem}
+.scan-preview{max-width:100%;max-height:250px;border-radius:12px;margin:1rem 0;border:1px solid var(--border)}
+.scan-result{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-top:1rem}
+.scan-result h4{color:var(--gold);margin-bottom:.75rem;font-size:.9rem}
+.scan-loading{text-align:center;padding:2rem;color:var(--text2)}
+.scan-loading .spinner{width:36px;height:36px;border:3px solid var(--bg4);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto .75rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Scanner: Destination picker */
+.dest-picker{display:flex;gap:.35rem;flex-wrap:wrap;align-items:center}
+.dest-btn{padding:.25rem .6rem;border-radius:6px;font-size:.68rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg4);color:var(--text2);transition:all .2s;white-space:nowrap}
+.dest-btn:hover{border-color:var(--gold);color:var(--gold)}
+.dest-btn.selected{border-color:var(--gold);background:var(--golddim);color:var(--gold)}
+.dest-btn.d-expense{border-color:rgba(248,113,113,.3);color:var(--red)}.dest-btn.d-expense.selected{background:rgba(248,113,113,.12)}
+.dest-btn.d-income{border-color:rgba(52,211,153,.3);color:var(--green)}.dest-btn.d-income.selected{background:rgba(52,211,153,.12)}
+.dest-btn.d-bank{border-color:rgba(96,165,250,.3);color:var(--blue)}.dest-btn.d-bank.selected{background:rgba(96,165,250,.12)}
+.dest-btn.d-stock{border-color:rgba(167,139,250,.3);color:var(--purple)}.dest-btn.d-stock.selected{background:rgba(167,139,250,.12)}
+.dest-btn.d-mf{border-color:rgba(34,211,238,.3);color:var(--cyan)}.dest-btn.d-mf.selected{background:rgba(34,211,238,.12)}
+.dest-btn.d-fd{border-color:rgba(251,146,60,.3);color:var(--orange)}.dest-btn.d-fd.selected{background:rgba(251,146,60,.12)}
+.dest-btn.d-skip{border-color:rgba(85,85,106,.4);color:var(--text3)}.dest-btn.d-skip.selected{background:rgba(85,85,106,.15)}
+
+/* Scanner: Summary section */
+.scan-section{background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-top:1rem;overflow:hidden}
+.scan-section-hdr{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.1rem;background:var(--bg3);border-bottom:1px solid var(--border)}
+.scan-section-hdr h4{font-size:.82rem;display:flex;align-items:center;gap:.5rem}
+.scan-section-body{padding:1rem}
+.scan-doc-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .75rem;border-radius:8px;font-size:.78rem;font-weight:600;margin-bottom:.75rem}
+.scan-doc-badge.bank_statement{background:rgba(96,165,250,.12);color:var(--blue)}
+.scan-doc-badge.credit_card_statement{background:rgba(248,113,113,.12);color:var(--red)}
+.scan-doc-badge.receipt,.scan-doc-badge.bill{background:rgba(248,113,113,.12);color:var(--red)}
+.scan-doc-badge.payslip{background:rgba(52,211,153,.12);color:var(--green)}
+.scan-doc-badge.investment_statement{background:rgba(167,139,250,.12);color:var(--purple)}
+.scan-doc-badge.tax_document{background:rgba(251,146,60,.12);color:var(--orange)}
+.scan-doc-badge.other{background:var(--golddim);color:var(--gold)}
+.scan-row-check{width:16px;height:16px;accent-color:var(--gold);cursor:pointer}
+.scan-bulk-bar{display:flex;gap:.5rem;align-items:center;padding:.75rem 1rem;background:linear-gradient(135deg,rgba(212,168,83,.06),rgba(96,165,250,.04));border:1px solid var(--border);border-radius:10px;margin-top:.75rem;flex-wrap:wrap}
+.scan-bulk-bar span{font-size:.78rem;color:var(--text2);font-weight:500}
+.scan-edit-inline{background:var(--bg4);border:1px solid var(--border);border-radius:4px;padding:.2rem .4rem;font-size:.78rem;color:var(--text);font-family:inherit;width:auto;min-width:60px}
+.scan-edit-inline:focus{outline:none;border-color:var(--gold)}
+
+/* ====== SETTINGS ====== */
+.setting-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+.setting-card h4{font-size:.85rem;color:var(--gold);margin-bottom:.75rem}
+.setting-card p{font-size:.78rem;color:var(--text3);margin-bottom:.75rem;line-height:1.5}
+.status-box{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .7rem;border-radius:6px;font-size:.75rem;font-weight:500}
+.status-ok{background:rgba(52,211,153,.1);color:var(--green)}
+.status-err{background:rgba(248,113,113,.1);color:var(--red)}
+
+/* ====== TOAST ====== */
+.toast-container{position:fixed;top:70px;right:1.5rem;z-index:600;display:flex;flex-direction:column;gap:.5rem}
+.toast{padding:.65rem 1rem;border-radius:10px;font-size:.8rem;font-weight:500;backdrop-filter:blur(12px);animation:toastIn .3s ease;display:flex;align-items:center;gap:.4rem;max-width:320px}
+.toast-ok{background:rgba(52,211,153,.15);color:var(--green);border:1px solid rgba(52,211,153,.2)}
+.toast-err{background:rgba(248,113,113,.15);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+.toast-info{background:rgba(96,165,250,.15);color:var(--blue);border:1px solid rgba(96,165,250,.2)}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+
+/* ====== SUMMARY STRIP ====== */
+.sstrip{display:flex;gap:1.5rem;padding:.85rem 1.2rem;background:linear-gradient(135deg,rgba(212,168,83,.05),rgba(96,165,250,.03));border:1px solid var(--border);border-radius:12px;margin-bottom:1.25rem;flex-wrap:wrap}
+.sstrip .si{display:flex;flex-direction:column;gap:.1rem}
+.sstrip .sl{font-size:.6rem;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)}
+.sstrip .sv{font-size:.95rem;font-weight:600}
+
+/* Stat row */
+.sr{display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,.025)}
+.sr:last-child{border:none}
+.sr .sl{color:var(--text2);font-size:.82rem}
+.sr .sv{font-weight:600;font-size:.82rem}
+
+/* Prog bar */
+.pb-w{margin-top:.3rem}
+.pb{height:5px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.pb-f{height:100%;border-radius:3px}
+
+/* Daily item */
+.di{display:flex;align-items:center;gap:.8rem;padding:.55rem 0;border-bottom:1px solid rgba(255,255,255,.025)}
+.di-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.di-info{flex:1;min-width:0}
+.di-name{font-size:.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.di-cat{font-size:.65rem;color:var(--text3);margin-top:1px}
+.di-amt{font-weight:600;font-size:.85rem;text-align:right;white-space:nowrap}
+
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--text3)}
+.empty-state h4{color:var(--text2);margin-bottom:.5rem;font-family:'Playfair Display',serif}
+</style>
+</head>
+<body>
+
+<div class="hdr"><div class="hdr-in">
+  <div class="logo"><div class="logo-i">A</div><div class="logo-t">Wealth Command Center</div></div>
+  <div class="hdr-r">
+    <div class="sync-dot" id="syncDot" title="Sync status"></div>
+    <span class="dt" id="liveDate"></span>
+    <div class="avatar" onclick="switchTab('settings')">⚙</div>
+  </div>
+</div></div>
+
+<div class="tabs-w"><div class="tabs" id="tabBar">
+  <div class="tab active" data-t="overview">Overview</div>
+  <div class="tab" data-t="transactions">Transactions</div>
+  <div class="tab" data-t="accounts">Accounts</div>
+  <div class="tab" data-t="stocks">Stocks</div>
+  <div class="tab" data-t="mf">Mutual Funds</div>
+  <div class="tab" data-t="income">Income</div>
+  <div class="tab" data-t="scanner">📷 Scanner</div>
+  <div class="tab" data-t="settings">Settings</div>
+</div></div>
+
+<div class="main">
+
+<!-- ============ OVERVIEW ============ -->
+<div class="tc active" id="tc-overview">
+  <div class="sstrip" id="overviewStrip"></div>
+  <div class="g g4" id="overviewCards"></div>
+  <div class="g g23" style="margin-top:1rem">
+    <div class="card"><div class="ct">Monthly Trend</div><div class="chw h250"><canvas id="chOvTrend"></canvas></div></div>
+    <div class="card"><div class="ct">Asset Allocation</div><div class="chw h250"><canvas id="chOvAlloc"></canvas></div></div>
+  </div>
+  <div class="g g2" style="margin-top:1rem">
+    <div class="card"><div class="ct">Income vs Expenses</div><div class="chw h250"><canvas id="chOvIncExp"></canvas></div></div>
+    <div class="card"><div class="ct">Top Holdings</div><div id="topHoldings"></div></div>
+  </div>
+</div>
+
+<!-- ============ TRANSACTIONS ============ -->
+<div class="tc" id="tc-transactions">
+  <div class="toolbar">
+    <h2 class="stitle" style="margin:0">Transactions</h2>
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <select id="txFilter" class="btn btn-outline btn-sm" style="padding:.35rem .6rem"><option value="all">All Types</option><option value="expense">Expenses</option><option value="investment">Investments</option><option value="transfer">Transfers</option></select>
+      <button class="btn btn-gold btn-sm" onclick="openModal('transaction')">+ Add Transaction</button>
+    </div>
+  </div>
+  <div class="card"><div class="tw"><table><thead><tr>
+    <th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Amount</th><th>Account</th><th>Mode</th><th></th>
+  </tr></thead><tbody id="txBody"></tbody></table></div></div>
+</div>
+
+<!-- ============ ACCOUNTS ============ -->
+<div class="tc" id="tc-accounts">
+  <div class="toolbar">
+    <h2 class="stitle" style="margin:0">Bank Accounts & Deposits</h2>
+    <button class="btn btn-gold btn-sm" onclick="openModal('account')">+ Add Account</button>
+  </div>
+  <div class="g g3" id="accountCards"></div>
+  <div class="stitle">All Accounts</div>
+  <div class="card"><div class="tw"><table><thead><tr>
+    <th>Bank</th><th>Name</th><th>Type</th><th>Balance</th><th>Interest</th><th>Status</th><th></th>
+  </tr></thead><tbody id="accBody"></tbody></table></div></div>
+  <div class="stitle">Fixed Deposits</div>
+  <div class="toolbar"><button class="btn btn-outline btn-sm" onclick="openModal('fd')">+ Add FD</button></div>
+  <div class="card"><div class="tw"><table><thead><tr>
+    <th>Bank</th><th>Principal</th><th>Rate</th><th>Tenure</th><th>Start</th><th>Maturity</th><th>Value</th><th>Status</th><th></th>
+  </tr></thead><tbody id="fdBody"></tbody></table></div></div>
+</div>
+
+<!-- ============ STOCKS ============ -->
+<div class="tc" id="tc-stocks">
+  <div class="toolbar">
+    <h2 class="stitle" style="margin:0">Stock Holdings</h2>
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <button id="aoRefreshBtn" class="btn btn-outline btn-sm" onclick="aoRefreshAllPrices()" style="border-color:var(--green);color:var(--green)">&#x21BB; Live Prices</button>
+      <button class="btn btn-gold btn-sm" onclick="openStockModal()">+ Add Stock</button>
+    </div>
+  </div>
+  <div class="g g4" id="stockSummary"></div>
+  <div class="stitle">Indian Stocks (NSE/BSE)</div>
+  <div class="card" id="stockINDefaultSection"><div class="tw"><table><thead><tr>
+    <th>Ticker</th><th>Company</th><th>Sector</th><th>Qty</th><th>Avg</th><th>CMP</th><th>Invested</th><th>Current</th><th>P&L</th><th>%</th><th></th>
+  </tr></thead><tbody id="stockINBody"></tbody></table></div></div>
+  <div id="stockINBrokerSections"></div>
+  <div class="stitle">US Stocks (NYSE/NASDAQ)</div>
+  <div class="card"><div class="tw"><table><thead><tr>
+    <th>Ticker</th><th>Company</th><th>Sector</th><th>Qty</th><th>Avg</th><th>CMP</th><th>Invested</th><th>Current</th><th>P&L</th><th>%</th><th></th>
+  </tr></thead><tbody id="stockUSBody"></tbody></table></div></div>
+  <div class="g g2" style="margin-top:1rem">
+    <div class="card"><div class="ct">Sector Split — India</div><div class="chw h250"><canvas id="chSectorIN"></canvas></div></div>
+    <div class="card"><div class="ct">Sector Split — US</div><div class="chw h250"><canvas id="chSectorUS"></canvas></div></div>
+  </div>
+</div>
+
+<!-- ============ MUTUAL FUNDS ============ -->
+<div class="tc" id="tc-mf">
+  <div class="toolbar">
+    <h2 class="stitle" style="margin:0">Mutual Fund Holdings</h2>
+    <button class="btn btn-gold btn-sm" onclick="openModal('mf')">+ Add Fund</button>
+  </div>
+  <div class="g g4" id="mfSummary"></div>
+  <div class="card" style="margin-top:1rem"><div class="tw"><table><thead><tr>
+    <th>Fund</th><th>House</th><th>Category</th><th>Mode</th><th>SIP</th><th>Invested</th><th>Current</th><th>Returns</th><th>XIRR</th><th></th>
+  </tr></thead><tbody id="mfBody"></tbody></table></div></div>
+  <div class="g g2" style="margin-top:1rem">
+    <div class="card"><div class="ct">Category Split</div><div class="chw h250"><canvas id="chMFCat"></canvas></div></div>
+    <div class="card"><div class="ct">Invested vs Current</div><div class="chw h250"><canvas id="chMFBar"></canvas></div></div>
+  </div>
+</div>
+
+<!-- ============ INCOME ============ -->
+<div class="tc" id="tc-income">
+  <div class="toolbar">
+    <h2 class="stitle" style="margin:0">Income & Salary</h2>
+    <button class="btn btn-gold btn-sm" onclick="openModal('income')">+ Add Income</button>
+  </div>
+  <div class="g g4" id="incomeCards"></div>
+  <div class="g g23" style="margin-top:1rem">
+    <div class="card">
+      <div class="ct">Salary Structure</div>
+      <div class="toolbar" style="margin-bottom:.5rem"><button class="btn btn-outline btn-sm" onclick="openModal('salary_comp')">+ Component</button></div>
+      <div id="salaryStructure"></div>
+    </div>
+    <div class="card"><div class="ct">Income Sources</div><div class="chw h250"><canvas id="chIncSrc"></canvas></div></div>
+  </div>
+  <div class="stitle">Income History</div>
+  <div class="card"><div class="tw"><table><thead><tr>
+    <th>Date</th><th>Source</th><th>Type</th><th>Description</th><th>Gross</th><th>Deductions</th><th>Net</th><th></th>
+  </tr></thead><tbody id="incBody"></tbody></table></div></div>
+</div>
+
+<!-- ============ SCANNER ============ -->
+<div class="tc" id="tc-scanner">
+  <h2 class="stitle" style="margin-top:0">Statement Scanner</h2>
+  <p style="color:var(--text2);font-size:.82rem;margin-bottom:1rem">Upload any bank statement, credit card bill, payslip, or investment report — as an image <strong style="color:var(--text)">or PDF</strong>. AI extracts all transactions; you choose where each goes.</p>
+  
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="scanInput" accept="image/*,.pdf,application/pdf" multiple>
+    <h4>📄 Drop Statement Here</h4>
+    <p>JPG · PNG · <strong>PDF</strong> supported &nbsp;·&nbsp; Multi-page PDFs fully scanned</p>
+  </div>
+
+  <div class="g g32" style="margin-top:1rem">
+    <div>
+      <div id="scanPreviewArea"></div>
+      <div id="scanLoading" style="display:none" class="scan-loading">
+        <div class="spinner"></div>
+        <p>Analyzing statement with AI...</p>
+      </div>
+      <div id="scanResults"></div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="ct">Recently Scanned</div>
+        <div id="scanHistory">
+          <div class="empty-state"><h4>No scans yet</h4><p>Upload an image or PDF to get started</p></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:1rem">
+        <div class="ct">Destination Guide</div>
+        <div class="di" style="border:none"><div class="di-icon" style="background:rgba(248,113,113,.1);color:var(--red)">💸</div><div class="di-info"><div class="di-name">Expense</div><div class="di-cat">Bills, purchases, debits, subscriptions</div></div></div>
+        <div class="di" style="border:none"><div class="di-icon" style="background:rgba(52,211,153,.1);color:var(--green)">💰</div><div class="di-info"><div class="di-name">Income</div><div class="di-cat">Salary, freelance, credits, refunds</div></div></div>
+        <div class="di" style="border:none"><div class="di-icon" style="background:rgba(96,165,250,.1);color:var(--blue)">🏦</div><div class="di-info"><div class="di-name">Bank Account</div><div class="di-cat">Account balances, bank details</div></div></div>
+        <div class="di" style="border:none"><div class="di-icon" style="background:rgba(167,139,250,.1);color:var(--purple)">📈</div><div class="di-info"><div class="di-name">Stocks</div><div class="di-cat">Share purchases, portfolio statements</div></div></div>
+        <div class="di" style="border:none"><div class="di-icon" style="background:rgba(34,211,238,.1);color:var(--cyan)">📊</div><div class="di-info"><div class="di-name">Mutual Funds</div><div class="di-cat">SIP, NAV statements, fund reports</div></div></div>
+        <div class="di" style="border:none"><div class="di-icon" style="background:rgba(251,146,60,.1);color:var(--orange)">🔒</div><div class="di-info"><div class="di-name">Fixed Deposit</div><div class="di-cat">FD receipts, maturity certificates</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SETTINGS ============ -->
+<div class="tc" id="tc-settings">
+  <h2 class="stitle" style="margin-top:0">Settings & Configuration</h2>
+  <div class="g g2">
+    <div>
+      <div class="setting-card">
+        <h4>📊 Google Sheets Backend</h4>
+        <p>Deploy the Apps Script as a Web App and paste the URL here. All data syncs to your Google Sheet automatically.</p>
+        <div class="fg"><label>Web App URL</label><input type="url" id="cfgSheetURL" placeholder="https://script.google.com/macros/s/.../exec"></div>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <button class="btn btn-gold btn-sm" onclick="testSheetConnection()">Test Connection</button>
+          <button class="btn btn-outline btn-sm" onclick="syncFromSheet()">↓ Pull Data</button>
+          <button class="btn btn-outline btn-sm" onclick="syncToSheet()">↑ Push Data</button>
+          <span id="sheetStatus"></span>
+        </div>
+      </div>
+      <div class="setting-card" style="border-color:rgba(52,211,153,.2)">
+        <h4>📈 Angel One SmartAPI</h4>
+        <p>Live NSE prices for your entire portfolio. Auto-connected using your credentials.</p>
+        <div style="display:flex;align-items:center;gap:.75rem;margin:.75rem 0;padding:.6rem .9rem;background:var(--bg3);border-radius:8px">
+          <span id="aoStatusDot" style="width:10px;height:10px;border-radius:50%;background:var(--text3);flex-shrink:0"></span>
+          <span id="aoStatusText" style="font-size:.8rem;color:var(--text2)">Checking connection…</span>
+          <button class="btn btn-outline btn-sm" onclick="aoInit()" style="margin-left:auto">Reconnect</button>
+        </div>
+        <div style="font-size:.72rem;color:var(--text3)">Client ID: AAAA002545 &nbsp;·&nbsp; API: aktMsqo3</div>
+      </div>
+      <div class="setting-card">
+        <h4>🤖 Anthropic API (Statement Scanner)</h4>
+        <p>Enter your Anthropic API key to enable AI-powered statement scanning. Your key is stored locally and never shared.</p>
+        <div class="fg"><label>API Key</label><input type="password" id="cfgAPIKey" placeholder="sk-ant-..."></div>
+        <button class="btn btn-gold btn-sm" onclick="saveSettings()">Save Settings</button>
+      </div>
+    </div>
+    <div>
+      <div class="setting-card">
+        <h4>📋 Setup Instructions</h4>
+        <p>1. Create a new Google Sheet<br>2. Go to Extensions → Apps Script<br>3. Paste the provided <b>apps_script.js</b> code<br>4. Run the <code>setupSheets</code> function (it creates all tabs)<br>5. Deploy → New Deployment → Web App<br>6. Set "Who has access" to <b>Anyone</b><br>7. Copy the URL and paste it above</p>
+      </div>
+      <div class="setting-card">
+        <h4>💾 Local Data</h4>
+        <p>Data is also cached locally for offline use.</p>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="exportLocalData()">Export JSON</button>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('importFile').click()">Import JSON</button>
+          <input type="file" id="importFile" accept=".json" style="display:none" onchange="importLocalData(event)">
+          <button class="btn btn-red btn-sm" onclick="if(confirm('Clear ALL local data?')){localStorage.clear();location.reload()}">Reset All</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<!-- ============ MODAL ============ -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-hdr"><h3 id="modalTitle">Add Item</h3><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-outline btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-gold btn-sm" id="modalSave" onclick="saveModalData()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ STOCK SEARCH MODAL ============ -->
+<div class="modal-overlay" id="stockModalOverlay" onclick="if(event.target===this)closeStockModal()">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-hdr">
+      <h3 id="stockModalTitle">Add Stock Holding</h3>
+      <button class="modal-close" onclick="closeStockModal()">×</button>
+    </div>
+    <div class="modal-body" id="stockModalBody">
+
+      <!-- Step 1: Search -->
+      <div id="stkStep1">
+        <div style="position:relative;margin-bottom:1rem">
+          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:.4rem">Search Stock / ETF</div>
+          <div style="position:relative">
+            <input id="stkSearchInput" type="text" placeholder="Type ticker or company name… e.g. RELIANCE, HAL, TCS"
+              autocomplete="off"
+              style="width:100%;padding:.6rem .75rem .6rem 2.4rem;background:var(--bg3);border:1.5px solid var(--gold);border-radius:10px;color:var(--text);font-family:inherit;font-size:.88rem"
+              oninput="stkSearchDebounce(this.value)">
+            <span style="position:absolute;left:.7rem;top:50%;transform:translateY(-50%);font-size:1rem;pointer-events:none">🔍</span>
+          </div>
+          <div id="stkDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg3);border:1px solid var(--border);border-radius:10px;z-index:600;max-height:280px;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.5);margin-top:.25rem"></div>
+        </div>
+        <div id="stkSearchStatus" style="font-size:.78rem;color:var(--text3);text-align:center;padding:.5rem 0"></div>
+      </div>
+
+      <!-- Step 2: Fill details (hidden until stock selected) -->
+      <div id="stkStep2" style="display:none">
+        <!-- Selected stock badge -->
+        <div id="stkSelectedBadge" style="display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;background:var(--bg3);border:1.5px solid var(--gold);border-radius:12px;margin-bottom:1.1rem">
+          <div id="stkBadgeIcon" style="width:38px;height:38px;border-radius:9px;background:var(--golddim);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem;color:var(--gold);flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div id="stkBadgeName" style="font-weight:600;font-size:.9rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+            <div id="stkBadgeMeta" style="font-size:.73rem;color:var(--text3);margin-top:1px"></div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div id="stkBadgePrice" style="font-weight:700;font-size:1.05rem;color:var(--green)"></div>
+            <div id="stkBadgeChg" style="font-size:.72rem;margin-top:1px"></div>
+          </div>
+          <button onclick="stkReset()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:1.1rem;padding:.2rem;margin-left:.25rem" title="Search again">✕</button>
+        </div>
+
+        <div class="fg-row">
+          <div class="fg">
+            <label>Quantity *</label>
+            <input type="number" id="stkQty" min="0.0001" step="any" placeholder="e.g. 10" oninput="stkRecalc()">
+          </div>
+          <div class="fg">
+            <label>Avg Buy Price (₹) *</label>
+            <input type="number" id="stkAvgPrice" min="0" step="any" placeholder="e.g. 2500" oninput="stkRecalc()">
+          </div>
+        </div>
+
+        <div class="fg">
+          <label>Current Price *</label>
+          <div style="position:relative">
+            <input type="number" id="stkCurrentPrice" min="0" step="any" placeholder="Auto-fetched or enter manually" oninput="stkRecalc()">
+            <button id="stkRefreshBtn" onclick="stkRefreshPrice()" title="Refresh live price" style="
+              position:absolute;right:.5rem;top:50%;transform:translateY(-50%);
+              background:var(--golddim);border:none;border-radius:6px;color:var(--gold);
+              font-size:.78rem;padding:.2rem .45rem;cursor:pointer;font-family:inherit">⟳ Live</button>
+          </div>
+        </div>
+
+        <div class="fg-row">
+          <div class="fg">
+            <label>Sector</label>
+            <input type="text" id="stkSector" placeholder="e.g. Technology">
+          </div>
+          <div class="fg">
+            <label>Market</label>
+            <select id="stkMarket">
+              <option>NSE</option><option>BSE</option><option>NYSE</option><option>NASDAQ</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Live P&L preview -->
+        <div id="stkPnlPreview" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem;margin-top:.25rem">
+          <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:.5rem">Preview</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;text-align:center">
+            <div><div style="font-size:.7rem;color:var(--text3)">Invested</div><div id="stkPreviewInv" style="font-weight:600;font-size:.88rem;color:var(--text);margin-top:2px"></div></div>
+            <div><div style="font-size:.7rem;color:var(--text3)">Current</div><div id="stkPreviewCur" style="font-weight:600;font-size:.88rem;color:var(--text);margin-top:2px"></div></div>
+            <div><div style="font-size:.7rem;color:var(--text3)">P&L</div><div id="stkPreviewPnl" style="font-weight:600;font-size:.88rem;margin-top:2px"></div></div>
+          </div>
+        </div>
+
+        <!-- Hidden fields -->
+        <input type="hidden" id="stkTicker">
+        <input type="hidden" id="stkCompany">
+        <input type="hidden" id="stkSymbolFull">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline btn-sm" onclick="closeStockModal()">Cancel</button>
+      <button class="btn btn-gold btn-sm" id="stkSaveBtn" onclick="saveStockFromModal()" style="display:none">Save Holding</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DETAIL PANEL ============ -->
+<div class="detail-panel" id="detailPanel">
+  <div class="dp-hdr"><h3 id="dpTitle">Details</h3><button class="modal-close" onclick="closeDetail()">×</button></div>
+  <div class="dp-body" id="dpBody"></div>
+  <div class="dp-actions" id="dpActions"></div>
+</div>
+
+<!-- ============ TOASTS ============ -->
+<div class="toast-container" id="toasts"></div>
+
+<script>
+// ═══════════════════════════════════════════
+//  DATA STORE — localStorage + Google Sheets
+// ═══════════════════════════════════════════
+const DB_KEY = 'wcc_data';
+const CFG_KEY = 'wcc_config';
+const SCAN_KEY = 'wcc_scans';
+
+const DEFAULTS = {
+  transactions:[],accounts:[],stocks:[],mutual_funds:[],income:[],salary_structure:[],fixed_deposits:[]
+};
+
+let DATA = {};
+let CONFIG = { sheetURL:'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec', apiKey:'' };
+let CHARTS = {};
+let currentModal = null;
+
+function loadData(){ DATA = JSON.parse(localStorage.getItem(DB_KEY)||'null') || JSON.parse(JSON.stringify(DEFAULTS)); }
+function saveData(){ localStorage.setItem(DB_KEY, JSON.stringify(DATA)); }
+function loadConfig(){ CONFIG = JSON.parse(localStorage.getItem(CFG_KEY)||'null') || {sheetURL:'',apiKey:''}; }
+function saveConfig(){ localStorage.setItem(CFG_KEY, JSON.stringify(CONFIG)); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function fmt(n,cur='₹'){return cur+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:0})}
+function fmtPct(n){return (n>=0?'+':'')+Number(n||0).toFixed(1)+'%'}
+function dateStr(d){if(!d)return'—';const dt=new Date(d);return isNaN(dt)?d:dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}
+function toast(msg,type='ok'){const d=document.createElement('div');d.className='toast toast-'+type;d.textContent=msg;document.getElementById('toasts').appendChild(d);setTimeout(()=>d.remove(),3500)}
+
+// ═══════════════════════════════════════════
+//  TAB NAVIGATION
+// ═══════════════════════════════════════════
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tc').forEach(x=>x.classList.remove('active'));
+  const tabEl = document.querySelector(`.tab[data-t="${t}"]`);
+  if(tabEl)tabEl.classList.add('active');
+  document.getElementById('tc-'+t)?.classList.add('active');
+  renderTab(t);
+}
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>switchTab(t.dataset.t));
+});
+
+// ═══════════════════════════════════════════
+//  RENDER ALL
+// ═══════════════════════════════════════════
+function renderAll(){
+  renderTab('overview');
+  loadSettingsUI();
+}
+function renderTab(t){
+  if(t==='overview') renderOverview();
+  if(t==='transactions') renderTransactions();
+  if(t==='accounts') renderAccounts();
+  if(t==='stocks') renderStocks();
+  if(t==='mf') renderMF();
+  if(t==='income') renderIncome();
+}
+
+// ═══════════════════════════════════════════
+//  OVERVIEW
+// ═══════════════════════════════════════════
+function renderOverview(){
+  const totalAccBal = DATA.accounts.reduce((s,a)=>s+Number(a.balance||0),0);
+  const totalStockVal = DATA.stocks.reduce((s,x)=>s+Number(x.current_value||0),0);
+  const totalStockInv = DATA.stocks.reduce((s,x)=>s+Number(x.invested||0),0);
+  const totalMFVal = DATA.mutual_funds.reduce((s,x)=>s+Number(x.current_value||0),0);
+  const totalMFInv = DATA.mutual_funds.reduce((s,x)=>s+Number(x.invested||0),0);
+  const totalFD = DATA.fixed_deposits.reduce((s,x)=>s+Number(x.principal||0),0);
+  const netWorth = totalAccBal+totalStockVal+totalMFVal+totalFD;
+  const totalInv = totalStockInv+totalMFInv;
+  const totalPnL = (totalStockVal-totalStockInv)+(totalMFVal-totalMFInv);
+  const totalIncome = DATA.income.reduce((s,x)=>s+Number(x.net_amount||0),0);
+  const totalExp = DATA.transactions.filter(x=>x.type==='expense').reduce((s,x)=>s+Math.abs(Number(x.amount||0)),0);
+
+  document.getElementById('overviewStrip').innerHTML = `
+    <div class="si"><span class="sl">Net Worth</span><span class="sv gold" style="background:linear-gradient(135deg,var(--gold),var(--gold3));-webkit-background-clip:text;-webkit-text-fill-color:transparent">${fmt(netWorth)}</span></div>
+    <div class="si"><span class="sl">Total Invested</span><span class="sv">${fmt(totalInv)}</span></div>
+    <div class="si"><span class="sl">Overall P&L</span><span class="sv ${totalPnL>=0?'pos':'neg'}">${fmt(totalPnL)}</span></div>
+    <div class="si"><span class="sl">Bank Balance</span><span class="sv">${fmt(totalAccBal)}</span></div>
+    <div class="si"><span class="sl">Total Income</span><span class="sv" style="color:var(--green)">${fmt(totalIncome)}</span></div>
+    <div class="si"><span class="sl">Total Expenses</span><span class="sv" style="color:var(--red)">${fmt(totalExp)}</span></div>
+  `;
+
+  document.getElementById('overviewCards').innerHTML = `
+    <div class="card card-glow"><div class="ct">Stocks Value</div><div class="cv gold">${fmt(totalStockVal)}</div><span class="badge ${totalPnL>=0?'up':'dn'}">${totalStockInv?fmtPct(((totalStockVal-totalStockInv)/totalStockInv)*100):'—'}</span></div>
+    <div class="card"><div class="ct">Mutual Funds</div><div class="cv">${fmt(totalMFVal)}</div><span class="badge ${totalMFVal>=totalMFInv?'up':'dn'}">${totalMFInv?fmtPct(((totalMFVal-totalMFInv)/totalMFInv)*100):'—'}</span></div>
+    <div class="card"><div class="ct">Fixed Deposits</div><div class="cv">${fmt(totalFD)}</div></div>
+    <div class="card"><div class="ct">Holdings Count</div><div class="cv">${DATA.stocks.length+DATA.mutual_funds.length}</div><span style="color:var(--text3);font-size:.75rem">${DATA.stocks.length} stocks · ${DATA.mutual_funds.length} funds</span></div>
+  `;
+
+  // Asset Allocation chart
+  const allocData = [totalAccBal,totalStockVal,totalMFVal,totalFD].filter(x=>x>0);
+  const allocLabels = ['Banks','Stocks','Mutual Funds','Fixed Deposits'].filter((_,i)=>[totalAccBal,totalStockVal,totalMFVal,totalFD][i]>0);
+  destroyChart('chOvAlloc');
+  if(allocData.length){
+    CHARTS.chOvAlloc = new Chart(document.getElementById('chOvAlloc'),{type:'doughnut',data:{labels:allocLabels,datasets:[{data:allocData,backgroundColor:['#a78bfa','#d4a853','#34d399','#60a5fa'],borderWidth:0,borderRadius:4}]},options:{cutout:'62%',plugins:{legend:{position:'right',labels:{padding:10,font:{size:10}}}}}});
+  }
+
+  // Top Holdings
+  const allHoldings = [
+    ...DATA.stocks.map(s=>({name:s.ticker||s.company,val:Number(s.current_value||0),pnl:Number(s.pnl||0)})),
+    ...DATA.mutual_funds.map(m=>({name:m.name,val:Number(m.current_value||0),pnl:Number(m.returns||0)}))
+  ].sort((a,b)=>b.val-a.val).slice(0,8);
+  document.getElementById('topHoldings').innerHTML = allHoldings.length ? allHoldings.map(h=>`
+    <div class="sr"><span class="sl">${h.name}</span><span class="sv">${fmt(h.val)} <small class="${h.pnl>=0?'pos':'neg'}">${fmt(h.pnl)}</small></span></div>
+  `).join('') : '<div class="empty-state"><h4>No holdings yet</h4><p>Add stocks or mutual funds to see them here</p></div>';
+}
+
+// ═══════════════════════════════════════════
+//  TRANSACTIONS
+// ═══════════════════════════════════════════
+function renderTransactions(){
+  const filter = document.getElementById('txFilter')?.value || 'all';
+  let items = [...DATA.transactions].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(filter!=='all') items = items.filter(x=>x.type===filter);
+  const tbody = document.getElementById('txBody');
+  if(!items.length){tbody.innerHTML='<tr><td colspan="8" class="empty-state">No transactions yet. Click "+ Add Transaction" to start.</td></tr>';return;}
+  tbody.innerHTML = items.map(t=>{
+    const isExp = t.type==='expense';
+    return `<tr class="clickable" onclick="showDetail('transactions','${t.id}')">
+      <td>${dateStr(t.date)}</td>
+      <td><span class="pill pill-${isExp?'r':t.type==='investment'?'g':'b'}">${t.type||'—'}</span></td>
+      <td>${t.category||'—'}</td>
+      <td>${t.description||'—'}</td>
+      <td class="${isExp?'neg':'pos'}">${isExp?'-':''}${fmt(Math.abs(t.amount))}</td>
+      <td>${t.account||'—'}</td>
+      <td>${t.payment_mode||'—'}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editItem('transactions','${t.id}')">✎</button></td>
+    </tr>`;
+  }).join('');
+}
+document.getElementById('txFilter')?.addEventListener('change',renderTransactions);
+
+// ═══════════════════════════════════════════
+//  ACCOUNTS
+// ═══════════════════════════════════════════
+function renderAccounts(){
+  const total = DATA.accounts.reduce((s,a)=>s+Number(a.balance||0),0);
+  const byType = {};
+  DATA.accounts.forEach(a=>{byType[a.type||'Savings']=(byType[a.type||'Savings']||0)+Number(a.balance||0)});
+  document.getElementById('accountCards').innerHTML = `
+    <div class="card card-glow"><div class="ct">Total Balance</div><div class="cv gold">${fmt(total)}</div></div>
+    <div class="card"><div class="ct">Accounts</div><div class="cv">${DATA.accounts.length}</div></div>
+    <div class="card"><div class="ct">Fixed Deposits</div><div class="cv">${fmt(DATA.fixed_deposits.reduce((s,x)=>s+Number(x.principal||0),0))}</div></div>
+  `;
+  const tbody = document.getElementById('accBody');
+  if(!DATA.accounts.length){tbody.innerHTML='<tr><td colspan="7" class="empty-state">No accounts added yet.</td></tr>';return;}
+  tbody.innerHTML = DATA.accounts.map(a=>`<tr class="clickable" onclick="showDetail('accounts','${a.id}')">
+    <td class="tk">${a.bank||'—'}</td><td>${a.name||'—'}</td><td><span class="pill pill-b">${a.type||'—'}</span></td>
+    <td>${fmt(a.balance)}</td><td>${a.interest_rate?a.interest_rate+'%':'—'}</td>
+    <td><span class="pill pill-g">${a.status||'Active'}</span></td>
+    <td><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editItem('accounts','${a.id}')">✎</button></td>
+  </tr>`).join('');
+
+  const fdBody = document.getElementById('fdBody');
+  if(!DATA.fixed_deposits.length){fdBody.innerHTML='<tr><td colspan="9" class="empty-state">No FDs added.</td></tr>';return;}
+  fdBody.innerHTML = DATA.fixed_deposits.map(f=>`<tr class="clickable" onclick="showDetail('fixed_deposits','${f.id}')">
+    <td class="tk">${f.bank||'—'}</td><td>${fmt(f.principal)}</td><td>${f.interest_rate||'—'}%</td>
+    <td>${f.tenure_months||'—'}mo</td><td>${dateStr(f.start_date)}</td><td>${dateStr(f.maturity_date)}</td>
+    <td>${fmt(f.maturity_value)}</td><td><span class="pill pill-${f.status==='Matured'?'gold':'g'}">${f.status||'Active'}</span></td>
+    <td><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editItem('fixed_deposits','${f.id}')">✎</button></td>
+  </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════
+//  STOCKS
+// ═══════════════════════════════════════════
+function renderStocks(){
+  const inStocks = DATA.stocks.filter(s=>s.market==='IN'||s.market==='NSE'||s.market==='BSE'||s.currency==='INR');
+  const usStocks = DATA.stocks.filter(s=>s.market==='US'||s.market==='NYSE'||s.market==='NASDAQ'||s.currency==='USD');
+  const brokerMap = {};
+  inStocks.forEach(s=>{
+    const broker = s.broker || 'Other Broker';
+    (brokerMap[broker] ||= []).push(s);
+  });
+  const totalInv = DATA.stocks.reduce((s,x)=>s+Number(x.invested||0),0);
+  const totalCur = DATA.stocks.reduce((s,x)=>s+Number(x.current_value||0),0);
+  const totalPnl = totalCur - totalInv;
+
+  document.getElementById('stockSummary').innerHTML = `
+    <div class="card card-glow"><div class="ct">Total Stock Value</div><div class="cv gold">${fmt(totalCur)}</div></div>
+    <div class="card"><div class="ct">Total Invested</div><div class="cv">${fmt(totalInv)}</div></div>
+    <div class="card"><div class="ct">Overall P&L</div><div class="cv ${totalPnl>=0?'pos':'neg'}">${fmt(totalPnl)}</div><span class="badge ${totalPnl>=0?'up':'dn'}">${totalInv?fmtPct((totalPnl/totalInv)*100):'—'}</span></div>
+    <div class="card"><div class="ct">Holdings</div><div class="cv">${DATA.stocks.length}</div><span style="color:var(--text3);font-size:.75rem">${inStocks.length} IN · ${usStocks.length} US · ${Object.keys(brokerMap).length} brokers</span></div>
+  `;
+
+  function stockRowsHtml(stocks, cur='₹'){
+    if(!stocks.length) return '<tr><td colspan="11" class="empty-state">No stocks added.</td></tr>';
+    return stocks.map(s=>{
+      const pnl = Number(s.pnl||0);
+      const rowCur = cur==='auto' ? ((s.market==='NYSE'||s.market==='NASDAQ'||s.currency==='USD') ? '$' : '₹') : cur;
+      return `<tr class="clickable" onclick="showDetail('stocks','${s.id}')">
+        <td class="tk">${s.ticker||'—'}</td><td>${s.company||'—'}</td><td>${s.sector||'—'}</td>
+        <td>${s.qty||0}</td><td>${rowCur}${Number(s.avg_price||0).toLocaleString()}</td><td>${rowCur}${Number(s.current_price||0).toLocaleString()}</td>
+        <td>${rowCur}${Number(s.invested||0).toLocaleString()}</td><td>${rowCur}${Number(s.current_value||0).toLocaleString()}</td>
+        <td class="${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${rowCur}${Math.abs(pnl).toLocaleString()}</td>
+        <td class="${pnl>=0?'pos':'neg'}">${s.pnl_pct||'—'}%</td>
+        <td><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editItem('stocks','${s.id}')">✎</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderStockTable(stocks, bodyId, cur='₹'){
+    document.getElementById(bodyId).innerHTML = stockRowsHtml(stocks, cur);
+  }
+
+  const brokerEntries = Object.entries(brokerMap);
+  const useBrokerSubsections = brokerEntries.some(([broker])=>broker && broker !== 'Other Broker');
+  const brokerSectionsHtml = brokerEntries.map(([broker, stocks])=>{
+    const invested = stocks.reduce((sum, item)=>sum + Number(item.invested||0), 0);
+    const current = stocks.reduce((sum, item)=>sum + Number(item.current_value||0), 0);
+    const pnl = current - invested;
+    return `
+      <div class="stitle" style="margin-top:1rem;font-size:.9rem">${broker}</div>
+      <div class="card" style="margin-bottom:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:.9rem 1rem .25rem;gap:.75rem;flex-wrap:wrap">
+          <div style="font-size:.75rem;color:var(--text3)">${stocks.length} holding${stocks.length>1?'s':''}</div>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.75rem">
+            <span style="color:var(--text3)">Invested <strong style="color:var(--text)">${fmt(invested)}</strong></span>
+            <span style="color:var(--text3)">Current <strong style="color:var(--text)">${fmt(current)}</strong></span>
+            <span style="color:var(--text3)">P&L <strong class="${pnl>=0?'pos':'neg'}">${fmt(pnl)}</strong></span>
+          </div>
+        </div>
+        <div class="tw"><table><thead><tr>
+          <th>Ticker</th><th>Company</th><th>Sector</th><th>Qty</th><th>Avg</th><th>CMP</th><th>Invested</th><th>Current</th><th>P&L</th><th>%</th><th></th>
+        </tr></thead><tbody>${stockRowsHtml(stocks, 'auto')}</tbody></table></div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('stockINDefaultSection').style.display = useBrokerSubsections ? 'none' : '';
+  document.getElementById('stockINBrokerSections').innerHTML = useBrokerSubsections ? brokerSectionsHtml : '';
+
+  renderStockTable(inStocks, 'stockINBody', '₹');
+  renderStockTable(usStocks, 'stockUSBody', '$');
+
+  // Sector charts
+  function sectorChart(stocks, canvasId){
+    const sectors={};
+    stocks.forEach(s=>{sectors[s.sector||'Other']=(sectors[s.sector||'Other']||0)+Number(s.current_value||0)});
+    const labels=Object.keys(sectors), vals=Object.values(sectors);
+    const colors=['#d4a853','#60a5fa','#34d399','#f87171','#a78bfa','#22d3ee','#fb923c','#f472b6'];
+    destroyChart(canvasId);
+    if(vals.length) CHARTS[canvasId]=new Chart(document.getElementById(canvasId),{type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:colors.slice(0,vals.length),borderWidth:0,borderRadius:4}]},options:{cutout:'60%',plugins:{legend:{position:'right',labels:{padding:8,font:{size:10}}}}}});
+  }
+  sectorChart(inStocks,'chSectorIN');
+  sectorChart(usStocks,'chSectorUS');
+}
+
+// ═══════════════════════════════════════════
+//  MUTUAL FUNDS
+// ═══════════════════════════════════════════
+function renderMF(){
+  const totalInv = DATA.mutual_funds.reduce((s,x)=>s+Number(x.invested||0),0);
+  const totalCur = DATA.mutual_funds.reduce((s,x)=>s+Number(x.current_value||0),0);
+  const totalRet = totalCur - totalInv;
+  const totalSIP = DATA.mutual_funds.filter(m=>m.mode==='SIP').reduce((s,x)=>s+Number(x.sip_amount||0),0);
+
+  document.getElementById('mfSummary').innerHTML = `
+    <div class="card card-glow"><div class="ct">Total MF Value</div><div class="cv gold">${fmt(totalCur)}</div></div>
+    <div class="card"><div class="ct">Total Invested</div><div class="cv">${fmt(totalInv)}</div></div>
+    <div class="card"><div class="ct">Returns</div><div class="cv ${totalRet>=0?'pos':'neg'}">${fmt(totalRet)}</div></div>
+    <div class="card"><div class="ct">Monthly SIP</div><div class="cv">${fmt(totalSIP)}</div></div>
+  `;
+
+  const tbody = document.getElementById('mfBody');
+  if(!DATA.mutual_funds.length){tbody.innerHTML='<tr><td colspan="10" class="empty-state">No mutual funds added.</td></tr>';return;}
+  tbody.innerHTML = DATA.mutual_funds.map(m=>{
+    const ret = Number(m.returns||0);
+    return `<tr class="clickable" onclick="showDetail('mutual_funds','${m.id}')">
+      <td class="tk">${m.name||'—'}</td><td>${m.fund_house||'—'}</td>
+      <td><span class="pill pill-b">${m.category||'—'}</span></td>
+      <td><span class="pill pill-${m.mode==='SIP'?'g':'gold'}">${m.mode||'—'}</span></td>
+      <td>${m.mode==='SIP'?fmt(m.sip_amount):'—'}</td>
+      <td>${fmt(m.invested)}</td><td>${fmt(m.current_value)}</td>
+      <td class="${ret>=0?'pos':'neg'}">${fmt(ret)}</td><td class="${ret>=0?'pos':'neg'}">${m.xirr||'—'}%</td>
+      <td><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editItem('mutual_funds','${m.id}')">✎</button></td>
+    </tr>`;
+  }).join('');
+
+  // Category chart
+  const cats={};
+  DATA.mutual_funds.forEach(m=>{cats[m.category||'Other']=(cats[m.category||'Other']||0)+Number(m.current_value||0)});
+  const catLabels=Object.keys(cats),catVals=Object.values(cats);
+  const colors=['#d4a853','#60a5fa','#34d399','#a78bfa','#fb923c','#22d3ee','#f472b6'];
+  destroyChart('chMFCat');
+  if(catVals.length) CHARTS.chMFCat=new Chart(document.getElementById('chMFCat'),{type:'doughnut',data:{labels:catLabels,datasets:[{data:catVals,backgroundColor:colors,borderWidth:0,borderRadius:4}]},options:{cutout:'60%',plugins:{legend:{position:'right',labels:{padding:8,font:{size:10}}}}}});
+
+  // Invested vs Current bar
+  const names = DATA.mutual_funds.map(m=>m.name?.substring(0,15)||'Fund');
+  const invVals = DATA.mutual_funds.map(m=>Number(m.invested||0));
+  const curVals = DATA.mutual_funds.map(m=>Number(m.current_value||0));
+  destroyChart('chMFBar');
+  if(names.length) CHARTS.chMFBar=new Chart(document.getElementById('chMFBar'),{type:'bar',data:{labels:names,datasets:[{label:'Invested',data:invVals,backgroundColor:'rgba(138,138,155,.3)',borderRadius:4},{label:'Current',data:curVals,backgroundColor:'rgba(52,211,153,.5)',borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{position:'top',labels:{font:{size:10}}}},scales:{x:{ticks:{callback:v=>'₹'+v.toLocaleString()}}}}});
+}
+
+// ═══════════════════════════════════════════
+//  INCOME
+// ═══════════════════════════════════════════
+function renderIncome(){
+  const totalGross = DATA.income.reduce((s,x)=>s+Number(x.gross_amount||0),0);
+  const totalNet = DATA.income.reduce((s,x)=>s+Number(x.net_amount||0),0);
+  const totalDed = DATA.income.reduce((s,x)=>s+Number(x.deductions||0),0);
+  const sources={};
+  DATA.income.forEach(i=>{sources[i.source||'Other']=(sources[i.source||'Other']||0)+Number(i.net_amount||0)});
+
+  document.getElementById('incomeCards').innerHTML = `
+    <div class="card card-glow"><div class="ct">Total Gross Income</div><div class="cv gold">${fmt(totalGross)}</div></div>
+    <div class="card"><div class="ct">Total Net Income</div><div class="cv" style="color:var(--green)">${fmt(totalNet)}</div></div>
+    <div class="card"><div class="ct">Deductions/Tax</div><div class="cv" style="color:var(--red)">${fmt(totalDed)}</div></div>
+    <div class="card"><div class="ct">Income Entries</div><div class="cv">${DATA.income.length}</div></div>
+  `;
+
+  // Salary structure
+  const salDiv = document.getElementById('salaryStructure');
+  if(!DATA.salary_structure.length){salDiv.innerHTML='<div class="empty-state"><p>No salary components. Add your salary structure.</p></div>';
+  } else {
+    const earnings = DATA.salary_structure.filter(s=>s.type==='earning');
+    const deductions = DATA.salary_structure.filter(s=>s.type==='deduction');
+    const grossM = earnings.reduce((s,x)=>s+Number(x.monthly_amount||0),0);
+    const dedM = deductions.reduce((s,x)=>s+Number(x.monthly_amount||0),0);
+    salDiv.innerHTML = earnings.map(s=>`<div class="sr"><span class="sl">${s.component}</span><span class="sv">${fmt(s.monthly_amount)}</span></div>`).join('') +
+      `<div class="sr" style="border-top:1px solid var(--border);margin-top:.5rem;padding-top:.6rem"><span class="sl" style="font-weight:600;color:var(--text)">Gross</span><span class="sv" style="color:var(--gold)">${fmt(grossM)}</span></div>` +
+      deductions.map(s=>`<div class="sr"><span class="sl">${s.component}</span><span class="sv neg">-${fmt(s.monthly_amount)}</span></div>`).join('') +
+      `<div class="sr" style="border-top:1px solid var(--border);margin-top:.5rem;padding-top:.6rem"><span class="sl" style="font-weight:600;color:var(--text)">Net Take Home</span><span class="sv" style="color:var(--green)">${fmt(grossM-dedM)}</span></div>`;
+  }
+
+  // Income source chart
+  const srcLabels=Object.keys(sources), srcVals=Object.values(sources);
+  const colors=['#d4a853','#60a5fa','#34d399','#a78bfa','#fb923c','#22d3ee'];
+  destroyChart('chIncSrc');
+  if(srcVals.length) CHARTS.chIncSrc=new Chart(document.getElementById('chIncSrc'),{type:'doughnut',data:{labels:srcLabels,datasets:[{data:srcVals,backgroundColor:colors,borderWidth:0,borderRadius:4}]},options:{cutout:'62%',plugins:{legend:{position:'right',labels:{padding:8,font:{size:10}}}}}});
+
+  // Income table
+  const tbody = document.getElementById('incBody');
+  const items = [...DATA.income].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(!items.length){tbody.innerHTML='<tr><td colspan="8" class="empty-state">No income records.</td></tr>';return;}
+  tbody.innerHTML = items.map(i=>`<tr class="clickable" onclick="showDetail('income','${i.id}')">
+    <td>${dateStr(i.date)}</td><td class="tk">${i.source||'—'}</td><td><span class="pill pill-g">${i.type||'—'}</span></td>
+    <td>${i.description||'—'}</td><td>${fmt(i.gross_amount)}</td><td class="neg">${fmt(i.deductions)}</td>
+    <td class="pos">${fmt(i.net_amount)}</td>
+    <td><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();editItem('income','${i.id}')">✎</button></td>
+  </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════
+//  MODAL FORMS
+// ═══════════════════════════════════════════
+const FORMS = {
+  transaction:{title:'Transaction',fields:[
+    {n:'date',l:'Date',t:'date',req:1},{n:'type',l:'Type',t:'select',opts:['expense','investment','transfer','income']},
+    {n:'category',l:'Category',t:'text'},{n:'subcategory',l:'Subcategory',t:'text'},
+    {n:'description',l:'Description',t:'text',req:1},{n:'amount',l:'Amount (₹)',t:'number',req:1},
+    {n:'account',l:'Account/Bank',t:'text'},{n:'payment_mode',l:'Payment Mode',t:'select',opts:['UPI','Card','Cash','Net Banking','Auto-Debit','Other']},
+    {n:'tags',l:'Tags',t:'text'},{n:'notes',l:'Notes',t:'textarea'}
+  ]},
+  account:{title:'Bank Account',fields:[
+    {n:'bank',l:'Bank Name',t:'text',req:1},{n:'name',l:'Account Name',t:'text',req:1},
+    {n:'type',l:'Type',t:'select',opts:['Savings','Salary','Current','FD Linked','NRE','NRO']},
+    {n:'balance',l:'Balance (₹)',t:'number',req:1},{n:'currency',l:'Currency',t:'select',opts:['INR','USD']},
+    {n:'interest_rate',l:'Interest Rate %',t:'number'},{n:'account_number_last4',l:'Last 4 Digits',t:'text'},
+    {n:'status',l:'Status',t:'select',opts:['Active','Dormant','Closed']}
+  ]},
+  fd:{title:'Fixed Deposit',tab:'fixed_deposits',fields:[
+    {n:'bank',l:'Bank',t:'text',req:1},{n:'principal',l:'Principal (₹)',t:'number',req:1},
+    {n:'interest_rate',l:'Interest Rate %',t:'number',req:1},{n:'tenure_months',l:'Tenure (Months)',t:'number'},
+    {n:'start_date',l:'Start Date',t:'date'},{n:'maturity_date',l:'Maturity Date',t:'date'},
+    {n:'maturity_value',l:'Maturity Value (₹)',t:'number'},{n:'status',l:'Status',t:'select',opts:['Active','Matured','Broken']}
+  ]},
+  stock:{title:'Stock Holding',fields:[
+    {n:'ticker',l:'Ticker',t:'text',req:1},{n:'company',l:'Company Name',t:'text',req:1},
+    {n:'market',l:'Market',t:'select',opts:['NSE','BSE','NYSE','NASDAQ']},{n:'sector',l:'Sector',t:'text'},
+    {n:'qty',l:'Quantity',t:'number',req:1},{n:'avg_price',l:'Avg Buy Price',t:'number',req:1},
+    {n:'current_price',l:'Current Price',t:'number',req:1},{n:'currency',l:'Currency',t:'select',opts:['INR','USD']}
+  ]},
+  mf:{title:'Mutual Fund',tab:'mutual_funds',fields:[
+    {n:'name',l:'Fund Name',t:'text',req:1},{n:'fund_house',l:'Fund House',t:'text'},
+    {n:'category',l:'Category',t:'select',opts:['Large Cap','Mid Cap','Small Cap','Flexi Cap','Index','ELSS','Hybrid','Debt','International','Sectoral']},
+    {n:'type',l:'Fund Type',t:'select',opts:['Equity','Debt','Hybrid','Other']},
+    {n:'mode',l:'Mode',t:'select',opts:['SIP','Lumpsum']},{n:'sip_amount',l:'SIP Amount (₹)',t:'number'},
+    {n:'invested',l:'Total Invested (₹)',t:'number',req:1},{n:'current_value',l:'Current Value (₹)',t:'number',req:1},
+    {n:'returns',l:'Absolute Returns (₹)',t:'number'},{n:'xirr',l:'XIRR %',t:'number'},
+    {n:'nav',l:'NAV',t:'number'},{n:'units',l:'Units',t:'number'}
+  ]},
+  income:{title:'Income Entry',fields:[
+    {n:'date',l:'Date',t:'date',req:1},{n:'source',l:'Source',t:'text',req:1},
+    {n:'type',l:'Type',t:'select',opts:['Salary','Freelance','Dividend','Interest','Rental','Business','Other']},
+    {n:'description',l:'Description',t:'text'},{n:'gross_amount',l:'Gross Amount (₹)',t:'number',req:1},
+    {n:'deductions',l:'Deductions/Tax (₹)',t:'number'},{n:'net_amount',l:'Net Amount (₹)',t:'number',req:1},
+    {n:'currency',l:'Currency',t:'select',opts:['INR','USD']},{n:'account',l:'Credited To',t:'text'},
+    {n:'recurring',l:'Recurring?',t:'select',opts:['Yes','No']},{n:'notes',l:'Notes',t:'textarea'}
+  ]},
+  salary_comp:{title:'Salary Component',tab:'salary_structure',fields:[
+    {n:'component',l:'Component Name',t:'text',req:1},
+    {n:'type',l:'Type',t:'select',opts:['earning','deduction']},
+    {n:'monthly_amount',l:'Monthly Amount (₹)',t:'number',req:1},
+    {n:'annual_amount',l:'Annual Amount (₹)',t:'number'},
+    {n:'effective_from',l:'Effective From',t:'date'},{n:'notes',l:'Notes',t:'text'}
+  ]}
+};
+
+let editingId = null;
+
+function openModal(formKey, prefill={}){
+  const form = FORMS[formKey];
+  if(!form) return;
+  currentModal = formKey;
+  editingId = prefill.id || null;
+  document.getElementById('modalTitle').textContent = (editingId?'Edit ':'Add ') + form.title;
+  const body = document.getElementById('modalBody');
+  body.innerHTML = form.fields.map(f=>{
+    const val = prefill[f.n]||'';
+    if(f.t==='select') return `<div class="fg"><label>${f.l}</label><select id="mf_${f.n}">${f.opts.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}</select></div>`;
+    if(f.t==='textarea') return `<div class="fg"><label>${f.l}</label><textarea id="mf_${f.n}">${val}</textarea></div>`;
+    return `<div class="fg"><label>${f.l}${f.req?' *':''}</label><input type="${f.t}" id="mf_${f.n}" value="${val}" ${f.req?'required':''}></div>`;
+  }).join('');
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); currentModal=null; editingId=null; }
+
+function saveModalData(){
+  const form = FORMS[currentModal];
+  if(!form) return;
+  const tab = form.tab || (currentModal==='stock'?'stocks':currentModal+'s');
+  if(currentModal==='fd') var tabKey='fixed_deposits';
+  else if(currentModal==='salary_comp') var tabKey='salary_structure';
+  else var tabKey = tab;
+
+  const item = {};
+  form.fields.forEach(f=>{
+    const el = document.getElementById('mf_'+f.n);
+    if(el) item[f.n] = f.t==='number'? (el.value?Number(el.value):'') : el.value;
+  });
+
+  // Auto-calc for stocks
+  if(currentModal==='stock' && item.qty && item.avg_price){
+    item.invested = item.qty * item.avg_price;
+    item.current_value = item.qty * (item.current_price||item.avg_price);
+    item.pnl = item.current_value - item.invested;
+    item.pnl_pct = item.invested ? ((item.pnl/item.invested)*100).toFixed(1) : 0;
+  }
+
+  if(editingId){
+    const idx = DATA[tabKey].findIndex(x=>x.id===editingId);
+    if(idx>=0){ item.id = editingId; DATA[tabKey][idx] = {...DATA[tabKey][idx],...item}; }
+  } else {
+    item.id = uid();
+    item.created_at = new Date().toISOString();
+    DATA[tabKey].push(item);
+  }
+
+  saveData();
+  closeModal();
+  renderAll();
+  syncItemToSheet(tabKey, item, editingId?'update':'add');
+  toast((editingId?'Updated':'Added')+' successfully');
+}
+
+function editItem(tab, id){
+  const item = DATA[tab]?.find(x=>x.id===id);
+  if(!item) return;
+  if(tab === 'stocks'){ openStockModal(item); return; }
+  const formMap = {transactions:'transaction',accounts:'account',mutual_funds:'mf',income:'income',fixed_deposits:'fd',salary_structure:'salary_comp'};
+  openModal(formMap[tab], item);
+}
+
+function deleteItem(tab, id){
+  if(!confirm('Delete this item?')) return;
+  DATA[tab] = DATA[tab].filter(x=>x.id!==id);
+  saveData();
+  closeDetail();
+  renderAll();
+  syncItemToSheet(tab, {id}, 'delete');
+  toast('Deleted','err');
+}
+
+// ═══════════════════════════════════════════
+//  DETAIL PANEL
+// ═══════════════════════════════════════════
+function showDetail(tab, id){
+  const item = DATA[tab]?.find(x=>x.id===id);
+  if(!item) return;
+  const panel = document.getElementById('detailPanel');
+  document.getElementById('dpTitle').textContent = item.description||item.name||item.ticker||item.component||item.source||'Details';
+
+  const skip = ['id','statement_data','created_at','last_updated'];
+  const rows = Object.entries(item).filter(([k])=>!skip.includes(k)).map(([k,v])=>{
+    const label = k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+    let val = v;
+    if(k.includes('date')&&v) val=dateStr(v);
+    if(k==='amount'||k.includes('price')||k.includes('value')||k==='balance'||k==='principal'||k.includes('amount')||k==='invested'||k==='returns'||k==='pnl'||k==='deductions') val=fmt(v);
+    if(k==='pnl_pct'||k==='xirr'||k==='interest_rate') val=v+'%';
+    return `<div class="dp-row"><span class="dp-lbl">${label}</span><span class="dp-val">${val||'—'}</span></div>`;
+  }).join('');
+
+  // Show statement data if present
+  let stmtHtml = '';
+  if(item.statement_data){
+    try{
+      const sd = typeof item.statement_data==='string'?JSON.parse(item.statement_data):item.statement_data;
+      stmtHtml = `<div style="margin-top:1rem;padding:1rem;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
+        <div class="ct" style="color:var(--gold)">📄 Extracted Statement Data</div>
+        ${Object.entries(sd).map(([k,v])=>`<div class="dp-row"><span class="dp-lbl">${k}</span><span class="dp-val">${v}</span></div>`).join('')}
+      </div>`;
+    }catch(e){}
+  }
+
+  let metaHtml = '';
+  if(item.created_at) metaHtml += `<div class="dp-row"><span class="dp-lbl">Created</span><span class="dp-val" style="font-size:.72rem;color:var(--text3)">${new Date(item.created_at).toLocaleString()}</span></div>`;
+
+  document.getElementById('dpBody').innerHTML = rows + stmtHtml + metaHtml;
+  document.getElementById('dpActions').innerHTML = `
+    <button class="btn btn-gold btn-sm" style="flex:1" onclick="closeDetail();editItem('${tab}','${id}')">✎ Edit</button>
+    <button class="btn btn-red btn-sm" onclick="deleteItem('${tab}','${id}')">🗑 Delete</button>
+  `;
+  panel.classList.add('open');
+}
+function closeDetail(){ document.getElementById('detailPanel').classList.remove('open'); }
+
+// ═══════════════════════════════════════════
+//  GOOGLE SHEETS SYNC
+// ═══════════════════════════════════════════
+function setSyncStatus(state){
+  const dot = document.getElementById('syncDot');
+  dot.className = 'sync-dot ' + state;
+}
+
+async function syncFromSheet(){
+  if(!CONFIG.sheetURL){toast('Set Google Sheet URL first','err');return;}
+  setSyncStatus('loading');
+  try{
+    const res = await fetch(CONFIG.sheetURL+'?tab=all', {
+      method:'GET',
+      headers:{'Content-Type':'text/plain'}
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const json = await res.json();
+    if(json.error){toast('Sheet error: '+json.error,'err');setSyncStatus('err');return;}
+    for(const [tab, rows] of Object.entries(json)){
+      if(DEFAULTS.hasOwnProperty(tab) && Array.isArray(rows)){
+        const existing = new Map((DATA[tab]||[]).map(x=>[x.id,x]));
+        rows.forEach(r=>{if(r.id) existing.set(r.id, {...existing.get(r.id),...r})});
+        DATA[tab] = Array.from(existing.values());
+      }
+    }
+    saveData();
+    renderAll();
+    setSyncStatus('ok');
+    toast('Synced from Google Sheet ✓');
+  }catch(e){
+    toast('Sync failed: '+e.message,'err');
+    setSyncStatus('err');
+    console.error('Sheet sync error:', e);
+  }
+}
+
+async function syncToSheet(){
+  if(!CONFIG.sheetURL){toast('Set Google Sheet URL first','err');return;}
+  setSyncStatus('loading');
+  try{
+    for(const [tab, rows] of Object.entries(DATA)){
+      if(Array.isArray(rows) && rows.length){
+        await fetch(CONFIG.sheetURL, {
+          method:'POST',
+          body: JSON.stringify({action:'bulk_replace', tab, items:rows}),
+          headers:{'Content-Type':'text/plain'}
+        });
+      }
+    }
+    setSyncStatus('ok');
+    toast('All data pushed to Google Sheet ✓');
+  }catch(e){toast('Push failed: '+e.message,'err');setSyncStatus('err');console.error('Push error:',e);}
+}
+
+async function syncItemToSheet(tab, item, action){
+  if(!CONFIG.sheetURL) return;
+  try{
+    await fetch(CONFIG.sheetURL,{method:'POST',body:JSON.stringify({action,tab,data:item}),headers:{'Content-Type':'text/plain'}});
+    setSyncStatus('ok');
+  }catch(e){setSyncStatus('err');}
+}
+
+async function testSheetConnection(){
+  const url = document.getElementById('cfgSheetURL').value.trim();
+  if(!url){toast('Enter a URL first','err');return;}
+  CONFIG.sheetURL = url;
+  saveConfig();
+  const status = document.getElementById('sheetStatus');
+  status.innerHTML = '<span class="status-box" style="background:rgba(251,146,60,.1);color:var(--orange)">Testing...</span>';
+  try{
+    const res = await fetch(url+'?tab=all');
+    const json = await res.json();
+    if(json.error) throw new Error(json.error);
+    status.innerHTML = '<span class="status-box status-ok">✓ Connected</span>';
+    setSyncStatus('ok');
+    toast('Google Sheet connected!');
+  }catch(e){
+    status.innerHTML = `<span class="status-box status-err">✗ ${e.message}</span>`;
+    setSyncStatus('err');
+  }
+}
+
+// ═══════════════════════════════════════════
+//  STATEMENT SCANNER (Anthropic API) — Enhanced
+// ═══════════════════════════════════════════
+const dropZone = document.getElementById('dropZone');
+const scanInput = document.getElementById('scanInput');
+let lastScanParsed = null; // store last scan for bulk actions
+let scanItemDestinations = {}; // { idx: 'expense'|'income'|'bank'|'stock'|'mf'|'fd'|'skip' }
+
+['dragenter','dragover'].forEach(e=>dropZone.addEventListener(e,ev=>{ev.preventDefault();dropZone.classList.add('drag')}));
+['dragleave','drop'].forEach(e=>dropZone.addEventListener(e,ev=>{ev.preventDefault();dropZone.classList.remove('drag')}));
+dropZone.addEventListener('drop',e=>handleScanFiles(e.dataTransfer.files));
+scanInput.addEventListener('change',e=>handleScanFiles(e.target.files));
+
+// Smart auto-detect destination based on data type
+function autoDetectDest(item, docType){
+  const desc = (item.description||'').toLowerCase();
+  const cat = (item.category||'').toLowerCase();
+  const type = (item.type||'').toLowerCase();
+
+  // From doc type
+  if(docType==='payslip') return 'income';
+  if(docType==='investment_statement'){
+    if(cat.includes('mutual')||cat.includes('sip')||cat.includes('nav')) return 'mf';
+    if(cat.includes('stock')||cat.includes('share')||cat.includes('equity')) return 'stock';
+    return 'stock';
+  }
+  if(docType==='tax_document') return 'expense';
+  // Credit card: debits = spending (expense), credits = payment/refund (skip by default)
+  if(docType==='credit_card_statement'){
+    if(type==='debit') return 'expense';
+    if(cat.includes('refund')||desc.includes('refund')) return 'expense'; // refunds are still expense-category reversals
+    return 'skip'; // credits in CC = payment received, skip by default
+  }
+
+  // From transaction type
+  if(type==='credit'||type==='income'||type==='salary'){
+    if(desc.includes('salary')||desc.includes('payroll')||cat.includes('salary')) return 'income';
+    if(desc.includes('dividend')||desc.includes('interest')) return 'income';
+    if(desc.includes('refund')) return 'income';
+    return 'income';
+  }
+  if(type==='debit'||type==='expense'){
+    return 'expense';
+  }
+
+  // From description keywords
+  if(desc.includes('sip')||desc.includes('mutual fund')||desc.includes('nav')) return 'mf';
+  if(desc.includes('share')||desc.includes('stock')||desc.includes('nse')||desc.includes('bse')) return 'stock';
+  if(desc.includes('fd')||desc.includes('fixed deposit')) return 'fd';
+  if(desc.includes('salary')||desc.includes('credit')||desc.includes('received')) return 'income';
+  
+  return 'expense'; // default
+}
+
+const DEST_CONFIG = {
+  expense: {label:'💸 Expense', cls:'d-expense', tab:'transactions', color:'var(--red)'},
+  income:  {label:'💰 Income',  cls:'d-income',  tab:'income',       color:'var(--green)'},
+  bank:    {label:'🏦 Bank',    cls:'d-bank',    tab:'accounts',     color:'var(--blue)'},
+  stock:   {label:'📈 Stock',   cls:'d-stock',   tab:'stocks',       color:'var(--purple)'},
+  mf:      {label:'📊 Mutual Fund', cls:'d-mf',  tab:'mutual_funds', color:'var(--cyan)'},
+  fd:      {label:'🔒 FD',      cls:'d-fd',      tab:'fixed_deposits',color:'var(--orange)'},
+  skip:    {label:'⏭ Skip',     cls:'d-skip',    tab:null,           color:'var(--text3)'}
+};
+
+function readFileAsDataURL(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ev => resolve(ev.target.result);
+    reader.onerror = ()=> reject(new Error(`Failed to read ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
+function ensurePdfJsReady(){
+  if(!window.pdfjsLib) throw new Error('PDF scanner helper failed to load. Refresh once and try again.');
+  if(!window.pdfjsLib.GlobalWorkerOptions.workerSrc){
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+}
+
+async function renderPdfPagesForScan(file, maxPages=6){
+  ensurePdfJsReady();
+  const buffer = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({data:buffer}).promise;
+  const pageCount = pdf.numPages;
+  const contents = [];
+  const previewThumbs = [];
+  let extractedText = '';
+
+  for(let i=1; i<=Math.min(pageCount, maxPages); i++){
+    const page = await pdf.getPage(i);
+
+    // ── TEXT EXTRACTION (primary, reliable for tabular data) ──
+    try{
+      const textContent = await page.getTextContent();
+      // Reconstruct rows by grouping items with similar Y coordinates
+      const items = textContent.items.filter(it => it.str.trim());
+      // Sort by Y desc (top to bottom), then X asc (left to right)
+      items.sort((a,b) => {
+        const dy = Math.round(b.transform[5]) - Math.round(a.transform[5]);
+        return dy !== 0 ? dy : a.transform[4] - b.transform[4];
+      });
+      // Group into rows (items within 3px Y tolerance = same row)
+      const rows = [];
+      let currentRow = [], lastY = null;
+      for(const it of items){
+        const y = Math.round(it.transform[5]);
+        if(lastY === null || Math.abs(y - lastY) <= 3){
+          currentRow.push(it.str);
+        } else {
+          if(currentRow.length) rows.push(currentRow.join('\t'));
+          currentRow = [it.str];
+        }
+        lastY = y;
+      }
+      if(currentRow.length) rows.push(currentRow.join('\t'));
+      extractedText += `\n=== Page ${i} ===\n${rows.join('\n')}`;
+    }catch(te){ console.warn('Text extract failed page', i, te); }
+
+    // ── IMAGE RENDER (visual fallback) ──
+    const baseViewport = page.getViewport({scale:1});
+    const scale = Math.min(1.8, 1300 / baseViewport.width);
+    const viewport = page.getViewport({scale});
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', {alpha:false});
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    await page.render({canvasContext:ctx, viewport}).promise;
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    const base64 = dataUrl.split(',')[1];
+    contents.push({type:'image', source:{type:'base64', media_type:'image/jpeg', data:base64}});
+    if(i<=3) previewThumbs.push(dataUrl);
+  }
+
+  return {contents, previewThumbs, pageCount, extractedText: extractedText.trim()};
+}
+
+function renderScanPreview({isPDF, file, dataUrl='', previewThumbs=[], pageCount=0}){
+  if(isPDF){
+    const thumbs = previewThumbs.length
+      ? `<div style="display:flex;gap:.5rem;overflow:auto;padding-top:.75rem">${previewThumbs.map((src,idx)=>`<img src="${src}" alt="PDF page ${idx+1}" style="width:120px;height:155px;object-fit:cover;border-radius:10px;border:1px solid var(--border)">`).join('')}</div>`
+      : '';
+    document.getElementById('scanPreviewArea').innerHTML = `
+      <div style="padding:1rem;background:var(--bg3);border:1px solid var(--border);border-radius:12px;margin:1rem 0">
+        <div style="display:flex;align-items:center;gap:.75rem">
+          <div style="width:44px;height:44px;border-radius:10px;background:rgba(248,113,113,.12);color:var(--red);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">📋</div>
+          <div>
+            <div style="font-weight:600;font-size:.88rem">${file.name}</div>
+            <div style="font-size:.75rem;color:var(--text3);margin-top:2px">PDF · ${(file.size/1024).toFixed(0)} KB${pageCount?` · ${pageCount} page${pageCount>1?'s':''}`:''}</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:.35rem;flex-wrap:wrap;justify-content:flex-end">
+            <span class="pill pill-b">PDF</span>
+            ${pageCount?`<span class="pill pill-g">${pageCount}p</span>`:''}
+          </div>
+        </div>
+        ${thumbs}
+      </div>`;
+    return;
+  }
+  document.getElementById('scanPreviewArea').innerHTML = `<img src="${dataUrl}" class="scan-preview" alt="Statement preview">`;
+}
+
+async function handleScanFiles(files){
+  if(!files.length) return;
+  if(!CONFIG.apiKey){toast('Set your Anthropic API key in Settings first','err');switchTab('settings');return;}
+
+  for(const file of files){
+    const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const isImage = file.type.startsWith('image/');
+    if(!isPDF && !isImage){toast(`Unsupported file: ${file.name} — use JPG, PNG or PDF`,'err');continue;}
+    try{
+      document.getElementById('scanLoading').style.display = 'block';
+      document.getElementById('scanResults').innerHTML = '';
+      let dataUrl = '';
+      let scanContents = [];
+      let previewThumbs = [];
+      let pageCount = 0;
+
+      let pdfExtractedText = '';
+      if(isPDF){
+        try{
+          const pdfPages = await renderPdfPagesForScan(file);
+          scanContents = pdfPages.contents;
+          previewThumbs = pdfPages.previewThumbs;
+          pageCount = pdfPages.pageCount;
+          pdfExtractedText = pdfPages.extractedText || '';
+        }catch(pdfErr){
+          const fallbackDataUrl = await readFileAsDataURL(file);
+          scanContents = [{type:'document', source:{type:'base64', media_type:'application/pdf', data:fallbackDataUrl.split(',')[1]}}];
+          console.warn('PDF page rendering failed, falling back to raw PDF upload:', pdfErr);
+        }
+      } else {
+        dataUrl = await readFileAsDataURL(file);
+        scanContents = [{type:'image', source:{type:'base64', media_type:file.type, data:dataUrl.split(',')[1]}}];
+      }
+
+      renderScanPreview({isPDF, file, dataUrl, previewThumbs, pageCount});
+
+      // Build final message content — prepend extracted text for PDFs so AI has clean tabular data
+      const finalContents = [...scanContents];
+      if(pdfExtractedText){
+        finalContents.unshift({
+          type: 'text',
+          text: `EXTRACTED TEXT FROM PDF (use this as the primary data source — it is exact and machine-readable):\n\n${pdfExtractedText}\n\n---\nPage images follow for visual reference:`
+        });
+      }
+
+      const promptText = `Analyze this financial document thoroughly. Extract ALL data visible across ALL pages.
+${pdfExtractedText ? `
+IMPORTANT: Raw text has been extracted from the PDF and provided above. Parse it directly — do not rely solely on the images.
+For a broker holdings/portfolio table the columns are typically:
+  Instrument | Qty | Avg Cost | LTP/CMP | Invested | Current Value | P&L | Net Chg% | Day Chg%
+Map each row to a "holdings" object (ticker=Instrument, qty=Qty, avg_price=AvgCost, current_price=LTP, invested_value=Invested, current_value=CurVal).
+Extract EVERY row — do not stop early.
+` : ''}
+Return ONLY a valid JSON object (no markdown, no backticks, no explanation).
+
+{
+  "document_type": "bank_statement|credit_card_statement|receipt|bill|payslip|investment_statement|tax_document|other",
+  "issuer_type": "bank|broker|employer|other",
+  "date": "YYYY-MM-DD or date range string",
+  "issuer": "bank or company name",
+  "account_holder": "name if visible",
+  "account_info": {
+    "account_number": "masked or last 4 digits",
+    "ifsc": "if visible",
+    "branch": "if visible",
+    "account_type": "savings|current|salary|fd|demat|credit_card"
+  },
+  "transactions": [
+    {
+      "date": "YYYY-MM-DD",
+      "description": "clear description",
+      "amount": 1234.56,
+      "type": "credit|debit",
+      "category": "salary|food|shopping|transport|bills|emi|subscription|transfer|investment|dividend|interest|refund|medical|education|other",
+      "balance_after": null,
+      "reference": "ref/txn id if visible"
+    }
+  ],
+  "holdings": [
+    {
+      "ticker": "SYMBOL",
+      "description": "security or fund name (same as ticker for stocks)",
+      "isin": null,
+      "market": "NSE",
+      "qty": 0,
+      "units": null,
+      "avg_price": 0,
+      "nav": null,
+      "current_price": 0,
+      "current_value": 0,
+      "invested_value": 0,
+      "sector": null,
+      "category": null,
+      "mode": null
+    }
+  ],
+  "summary": {
+    "opening_balance": 0,
+    "closing_balance": 0,
+    "total_credits": 0,
+    "total_debits": 0,
+    "total_transactions": 0
+  },
+  "investment_data": {
+    "fund_name": null,
+    "ticker": null,
+    "units": null,
+    "nav": null,
+    "qty": null,
+    "avg_price": null,
+    "current_value": null,
+    "invested_value": null
+  },
+  "salary_data": {
+    "basic": null,
+    "hra": null,
+    "special_allowance": null,
+    "gross": null,
+    "pf_deduction": null,
+    "tax_deducted": null,
+    "net_pay": null,
+    "other_components": {}
+  },
+  "additional_info": {}
+}
+
+Rules:
+- Extract EVERY single row — do not skip any
+- For investment/holdings statements, return one object per stock or fund in "holdings" array
+- Use "transactions" only for actual ledger rows or cash movements, not portfolio holding tables
+- If multiple holdings are visible, do not collapse them into a single investment_data object
+- If the filename or document looks like a broker holdings report, classify document_type as "investment_statement"
+- Extract broker/platform names like Zerodha, Groww, Upstox, ICICI Direct, HDFC Securities when visible
+- Amounts must be numbers (no currency symbols, no commas)
+- Dates in YYYY-MM-DD format
+- For payslips, fill salary_data
+- For investment statements, fill holdings array (not investment_data)
+- For bank/credit card statements, fill transactions and summary
+- For receipts/bills, create one transaction entry`;
+
+      try{
+        const response = await fetch('https://api.anthropic.com/v1/messages',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-api-key':CONFIG.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+          body:JSON.stringify({
+            model:'claude-sonnet-4-20250514',
+            max_tokens:8000,
+            messages:[{role:'user',content:[...finalContents,{type:'text', text: promptText}]}]
+          })
+        });
+        const data = await response.json();
+        if(!response.ok) throw new Error(data.error?.message || `Scanner request failed (${response.status})`);
+        const text = data.content?.map(c=>c.text||'').join('')||'';
+        const clean = text.replace(/```json|```/g,'').trim();
+        let parsed;
+        try{ parsed = JSON.parse(clean); }catch(pe){ parsed = {raw_text:text, document_type:'other'}; }
+        document.getElementById('scanLoading').style.display='none';
+        lastScanParsed = parsed;
+        lastScanParsed._filename = file.name;
+        scanItemDestinations = {};
+        renderScanResult(parsed, file.name);
+      }catch(err){
+        document.getElementById('scanLoading').style.display='none';
+        document.getElementById('scanResults').innerHTML = `<div class="scan-result"><h4 style="color:var(--red)">Error</h4><p>${err.message}</p></div>`;
+      }
+    }catch(err){
+      document.getElementById('scanLoading').style.display='none';
+      document.getElementById('scanResults').innerHTML = `<div class="scan-result"><h4 style="color:var(--red)">PDF Scan Error</h4><p>${err.message}</p></div>`;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+//  SCAN WIZARD — 3-step simplified flow
+// ═══════════════════════════════════════════
+
+// Categories per type
+const CAT_EXPENSE = ['Food & Dining','Shopping','Transport','Bills & Utilities','EMI / Loan','Subscriptions','Medical','Education','Entertainment','Travel','Fuel','Rent','Insurance','Other'];
+const CAT_INCOME  = ['Salary','Freelance','Dividend','Interest','Refund','Bonus','Rental Income','Other'];
+const CAT_INVEST  = ['Stocks','Mutual Fund','SIP','Fixed Deposit','Other Investment'];
+
+let wizardStep = 0;       // 1=source-type, 2=source-name, 3=transactions
+let wizardDocKind = '';   // 'bank'|'credit_card'|'salary'|'stock'|'mf'|'fd'|'other'
+let wizardSource  = '';   // bank/broker/employer name
+let txEdits = [];         // per-transaction: {include, type, category, description, amount, date}
+let scanReviewRows = [];  // raw parsed rows aligned with txEdits during review
+
+function firstFilled(...vals){
+  for(const v of vals){
+    if(typeof v === 'string' && v.trim()) return v.trim();
+    if(v !== null && v !== undefined && v !== '') return v;
+  }
+  return '';
+}
+
+function toNumber(...vals){
+  for(const v of vals){
+    if(v === null || v === undefined || v === '') continue;
+    const n = Number(String(v).replace(/,/g,'').trim());
+    if(Number.isFinite(n)) return n;
+  }
+  return 0;
+}
+
+function hasMeaningfulValue(v){
+  if(v === null || v === undefined) return false;
+  if(typeof v === 'number') return Number.isFinite(v) && v !== 0;
+  if(typeof v === 'string') return !!v.trim() && !['null','undefined','n/a','na'].includes(v.trim().toLowerCase());
+  if(Array.isArray(v)) return v.length > 0;
+  if(typeof v === 'object') return Object.values(v).some(hasMeaningfulValue);
+  return Boolean(v);
+}
+
+function getParsedInvestmentRows(parsed){
+  if(!parsed) return [];
+
+  const candidates = [
+    parsed.holdings,
+    parsed.stock_holdings,
+    parsed.mutual_fund_holdings,
+    parsed.positions,
+    parsed.investment_data?.holdings,
+    parsed.investment_data?.positions,
+    parsed.additional_info?.holdings,
+    parsed.additional_info?.stock_holdings,
+    parsed.additional_info?.mutual_fund_holdings,
+    parsed.additional_info?.positions
+  ];
+
+  const rows = candidates.find(arr => Array.isArray(arr) && arr.length);
+  if(rows) return rows;
+
+  const inv = parsed.investment_data;
+  if(inv && hasMeaningfulValue({
+    ticker: inv.ticker,
+    fund_name: inv.fund_name,
+    qty: inv.qty,
+    units: inv.units,
+    avg_price: inv.avg_price,
+    nav: inv.nav,
+    current_value: inv.current_value,
+    invested_value: inv.invested_value
+  })) return [inv];
+
+  return [];
+}
+
+function createScanEditRow(row, parsed, forcedType=''){
+  const baseType = forcedType || autoDetectDest(row, parsed.document_type||'other');
+  return {
+    include: true,
+    type: baseType,
+    category: firstFilled(row.category, row.sector, row.asset_class, 'Other'),
+    description: firstFilled(
+      row.description,
+      row.company,
+      row.name,
+      row.fund_name,
+      row.scheme_name,
+      row.security_name,
+      row.ticker,
+      row.isin,
+      'Scanned item'
+    ),
+    amount: Math.abs(toNumber(row.current_value, row.market_value, row.invested_value, row.amount, row.value)),
+    date: firstFilled(row.date, parsed.date, new Date().toISOString().split('T')[0]),
+    reference: firstFilled(row.reference, row.isin, ''),
+    ticker: firstFilled(row.ticker, row.symbol, ''),
+    qty: toNumber(row.qty, row.quantity, row.units),
+    units: toNumber(row.units, row.qty, row.quantity),
+    avg_price: toNumber(row.avg_price, row.average_price, row.nav),
+    nav: toNumber(row.nav, row.avg_price, row.average_price),
+    current_price: toNumber(row.current_price, row.market_price, row.ltp, row.cmp, row.avg_price, row.nav),
+    current_value: toNumber(row.current_value, row.market_value, row.amount),
+    invested: toNumber(row.invested_value, row.cost_value, row.invested, row.amount),
+    sector: firstFilled(row.sector, row.category, row.asset_class, ''),
+    market: firstFilled(row.market, row.exchange, ''),
+    fund_house: firstFilled(row.fund_house, row.amc, ''),
+    mode: firstFilled(row.mode, ''),
+    isin: firstFilled(row.isin, '')
+  };
+}
+
+const KNOWN_SCAN_SOURCES = [
+  'Zerodha','Groww','Upstox','Angel One','ICICI Direct','HDFC Securities','Kotak Securities',
+  '5paisa','Motilal Oswal','INDmoney','Interactive Brokers','Vested','Zerodha Coin',
+  'Paytm Money','MF Central','CAMS','KFintech','HDFC MF','SBI MF'
+];
+
+function detectKnownSource(...texts){
+  const hay = texts.filter(Boolean).join(' ').toLowerCase();
+  return KNOWN_SCAN_SOURCES.find(name => hay.includes(name.toLowerCase())) || '';
+}
+
+function inferScanKind(parsed, filename=''){
+  const investmentRows = getParsedInvestmentRows(parsed);
+  const hay = [
+    filename,
+    parsed.document_type,
+    parsed.issuer,
+    parsed.issuer_type,
+    parsed.raw_text,
+    JSON.stringify(parsed.additional_info||{})
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  if(investmentRows.length){
+    const mfLike = investmentRows.some(row=>{
+      const rowText = JSON.stringify(row).toLowerCase();
+      return /mutual|scheme|amc|folio|sip|nav|elss|liquid|hybrid|debt|equity fund/.test(rowText);
+    });
+    return mfLike ? 'mf' : 'stock';
+  }
+  if(/mutual|mf\b|sip|folio|amc|nav|cams|kfintech|coin/.test(hay)) return 'mf';
+  if(/holding|holdings|portfolio|demat|broker|zerodha|groww|upstox|angel|shares|equity|stock|nse|bse/.test(hay)) return 'stock';
+  if(parsed.document_type==='bank_statement') return 'bank';
+  if(parsed.document_type==='credit_card_statement') return 'credit_card';
+  if(parsed.document_type==='payslip') return 'salary';
+  return 'other';
+}
+
+function renderScanResult(parsed, filename){
+  const resultsDiv = document.getElementById('scanResults');
+  const inferredKind = inferScanKind(parsed, filename);
+  const investmentRows = getParsedInvestmentRows(parsed);
+
+  // Save to scan history
+  const scans = JSON.parse(localStorage.getItem(SCAN_KEY)||'[]');
+  scans.unshift({
+    filename,
+    timestamp:new Date().toISOString(),
+    type:parsed.document_type||'other',
+    issuer:parsed.issuer||'',
+    txCount: Math.max(parsed.transactions?.length||0, investmentRows.length||0)
+  });
+  localStorage.setItem(SCAN_KEY, JSON.stringify(scans.slice(0,20)));
+  renderScanHistory();
+
+  // Pre-fill txEdits from parsed transactions, or holdings for investment statements
+  scanReviewRows = ((inferredKind==='stock' || inferredKind==='mf') && investmentRows.length)
+    ? investmentRows
+    : (parsed.transactions || []);
+  txEdits = scanReviewRows.map(row => createScanEditRow(
+    row,
+    parsed,
+    (inferredKind==='stock' || inferredKind==='mf') ? inferredKind : ''
+  ));
+
+  // Detect initial kind from doc type
+  wizardDocKind = inferredKind;
+  wizardSource  = firstFilled(parsed.issuer, detectKnownSource(filename, parsed.raw_text, JSON.stringify(parsed.additional_info||{})), '');
+
+  showWizardStep1(resultsDiv, filename);
+}
+
+// ── STEP 1: What kind of statement? ──────────────
+function showWizardStep1(container, filename){
+  wizardStep = 1;
+  const kinds = [
+    {id:'bank',        icon:'🏦', label:'Bank Statement',   color:'var(--blue)'},
+    {id:'credit_card', icon:'💳', label:'Credit Card Bill', color:'var(--red)'},
+    {id:'salary',      icon:'💰', label:'Salary / Payslip', color:'var(--green)'},
+    {id:'stock',       icon:'📈', label:'Stock Statement',  color:'var(--purple)'},
+    {id:'mf',          icon:'📊', label:'Mutual Fund',      color:'var(--cyan)'},
+    {id:'fd',          icon:'🔒', label:'Fixed Deposit',    color:'var(--orange)'},
+    {id:'other',       icon:'📄', label:'Other / Receipt',  color:'var(--text2)'},
+  ];
+
+  container.innerHTML = `
+    <div style="margin-top:1rem">
+      <!-- Step indicator -->
+      ${wizardStepBar(1)}
+
+      <div style="margin:1.25rem 0 .5rem">
+        <div style="font-size:1rem;font-weight:600;color:var(--text);margin-bottom:.25rem">What kind of statement is this?</div>
+        <div style="font-size:.78rem;color:var(--text3)">${filename}</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.6rem;margin-top:1rem">
+        ${kinds.map(k=>`
+          <button onclick="selectWizardKind('${k.id}')" id="wkind-${k.id}" style="
+            display:flex;flex-direction:column;align-items:center;gap:.45rem;
+            padding:1rem .75rem;border-radius:12px;cursor:pointer;border:2px solid;
+            font-family:inherit;transition:all .2s;
+            ${wizardDocKind===k.id
+              ? `border-color:${k.color};background:rgba(255,255,255,.05);box-shadow:0 0 0 3px ${k.color}22`
+              : 'border-color:var(--border);background:var(--bg3)'}
+          ">
+            <span style="font-size:1.6rem">${k.icon}</span>
+            <span style="font-size:.78rem;font-weight:600;color:var(--text);text-align:center;line-height:1.3">${k.label}</span>
+          </button>
+        `).join('')}
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:1.25rem">
+        <button class="btn btn-gold" onclick="wizardNext1()">Next → &nbsp;Who issued it?</button>
+      </div>
+    </div>`;
+}
+
+function selectWizardKind(id){
+  wizardDocKind = id;
+  document.querySelectorAll('[id^="wkind-"]').forEach(b=>{
+    const k = b.id.replace('wkind-','');
+    const colors = {bank:'var(--blue)',credit_card:'var(--red)',salary:'var(--green)',stock:'var(--purple)',mf:'var(--cyan)',fd:'var(--orange)',other:'var(--text2)'};
+    const c = colors[k];
+    b.style.borderColor = (k===id) ? c : 'var(--border)';
+    b.style.background  = (k===id) ? 'rgba(255,255,255,.05)' : 'var(--bg3)';
+    b.style.boxShadow   = (k===id) ? `0 0 0 3px ${c}22` : 'none';
+  });
+}
+
+function wizardNext1(){
+  showWizardStep2(document.getElementById('scanResults'));
+}
+
+// ── STEP 2: Who issued it? ──────────────────────
+const ISSUERS = {
+  bank:        ['SBI','HDFC Bank','ICICI Bank','Axis Bank','Kotak Bank','PNB','Bank of Baroda','Canara Bank','IndusInd Bank','Yes Bank','IDFC First','Federal Bank','Other'],
+  credit_card: ['HDFC Card','SBI Card','ICICI Card','Axis Card','Kotak Card','Amex','Citi Card','IndusInd Card','RBL Card','Other'],
+  salary:      ['Current Employer','Previous Employer','Other'],
+  stock:       ['Zerodha','Groww','Upstox','Angel One','ICICI Direct','HDFC Securities','Kotak Securities','5paisa','Motilal Oswal','INDmoney','Interactive Brokers','Vested','Other'],
+  mf:          ['Zerodha Coin','Groww','Paytm Money','MF Central','CAMS','KFintech','INDmoney','HDFC MF','SBI MF','Other'],
+  fd:          ['SBI','HDFC Bank','ICICI Bank','Axis Bank','Kotak Bank','PNB','Post Office','Other'],
+  other:       ['Other']
+};
+
+function showWizardStep2(container){
+  wizardStep = 2;
+  const options = ISSUERS[wizardDocKind] || ISSUERS.other;
+  // Try to auto-match issuer from parsed data
+  if(wizardSource && !options.find(o=>o.toLowerCase()===wizardSource.toLowerCase())){
+    // Keep wizardSource as custom
+  } else if(wizardSource) {
+    const matched = options.find(o=>wizardSource.toLowerCase().includes(o.toLowerCase().replace(' card','').replace(' mf','')));
+    if(matched) wizardSource = matched;
+  }
+
+  container.innerHTML = `
+    <div style="margin-top:1rem">
+      ${wizardStepBar(2)}
+
+      <div style="margin:1.25rem 0 .5rem">
+        <button onclick="wizardBack()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:.8rem;font-family:inherit;padding:0;margin-bottom:.75rem">← Back</button>
+        <div style="font-size:1rem;font-weight:600;color:var(--text)">Who issued this statement?</div>
+        <div style="font-size:.78rem;color:var(--text3);margin-top:.2rem">Select or type a name</div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem">
+        ${options.map(o=>`
+          <button onclick="selectWizardSource('${o.replace(/'/g,"&#39;")}')" id="wsrc-${o.replace(/\s+/g,'_')}" class="btn btn-outline btn-sm" style="
+            ${wizardSource===o ? 'border-color:var(--gold);color:var(--gold);background:var(--golddim)' : ''}
+          ">${o}</button>
+        `).join('')}
+      </div>
+
+      <div style="margin-top:.9rem;display:flex;gap:.5rem;align-items:center">
+        <input id="wizardSourceCustom" class="scan-edit-inline" placeholder="Or type custom name…"
+          value="${options.includes(wizardSource)?'':wizardSource}"
+          oninput="wizardSource=this.value;document.querySelectorAll('[id^=wsrc-]').forEach(b=>b.style.borderColor='');b.style.color=''"
+          style="width:220px;font-size:.85rem;padding:.4rem .6rem">
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.25rem">
+        <button class="btn btn-outline btn-sm" onclick="wizardBack()">← Back</button>
+        <button class="btn btn-gold" onclick="wizardNext2()">${txEdits.length ? `Next → Review ${(wizardDocKind==='stock'||wizardDocKind==='mf') ? 'Holdings' : 'Transactions'}` : 'Finish & Save'}</button>
+      </div>
+    </div>`;
+}
+
+function selectWizardSource(name){
+  wizardSource = name;
+  document.querySelectorAll('[id^="wsrc-"]').forEach(b=>{
+    const isSelected = b.textContent.trim() === name;
+    b.style.borderColor = isSelected ? 'var(--gold)' : '';
+    b.style.color       = isSelected ? 'var(--gold)' : '';
+    b.style.background  = isSelected ? 'var(--golddim)' : '';
+  });
+  document.getElementById('wizardSourceCustom').value = '';
+}
+
+function wizardBack(){
+  const container = document.getElementById('scanResults');
+  if(wizardStep===2) showWizardStep1(container, lastScanParsed?._filename||'');
+  if(wizardStep===3) showWizardStep2(container);
+}
+
+function wizardNext2(){
+  // Grab custom input if filled
+  const custom = document.getElementById('wizardSourceCustom')?.value?.trim();
+  if(custom) wizardSource = custom;
+  if(!wizardSource) wizardSource = 'Unknown';
+
+  if(!txEdits.length){
+    // No transactions — handle salary/investment direct save
+    wizardDirectSave();
+    return;
+  }
+  showWizardStep3(document.getElementById('scanResults'));
+}
+
+// ── STEP 3: Review each transaction ────────────
+const TYPE_LABELS = {
+  expense:    {icon:'💸', label:'Expense',     color:'var(--red)'},
+  income:     {icon:'💰', label:'Income',      color:'var(--green)'},
+  stock:      {icon:'📈', label:'Stock',       color:'var(--purple)'},
+  mf:         {icon:'📊', label:'Mutual Fund', color:'var(--cyan)'},
+  fd:         {icon:'🔒', label:'FD',          color:'var(--orange)'},
+  skip:       {icon:'⏭',  label:'Skip',        color:'var(--text3)'},
+};
+
+function getCatsForType(type){
+  if(type==='income') return CAT_INCOME;
+  if(type==='expense') return CAT_EXPENSE;
+  if(type==='stock'||type==='mf'||type==='fd') return CAT_INVEST;
+  return [];
+}
+
+function showWizardStep3(container){
+  wizardStep = 3;
+
+  // Remap per chosen kind — also enrich txEdits with raw holding fields for stock/mf
+  txEdits.forEach((tx,i)=>{
+    const raw = scanReviewRows[i] || lastScanParsed.transactions?.[i] || {};
+    const orig = (raw.type||'').toLowerCase();
+
+    if(wizardDocKind==='credit_card'){
+      tx.type = orig==='credit' ? 'skip' : 'expense';
+    } else if(wizardDocKind==='salary'){
+      tx.type = 'income';
+    } else if(wizardDocKind==='stock'){
+      tx.type = 'stock';
+      // Carry over holding fields if AI extracted them
+      tx.ticker        = firstFilled(tx.ticker, raw.ticker, raw.symbol, raw.description?.split(' ')[0], '');
+      tx.description   = firstFilled(tx.description, raw.description, raw.company, raw.name, raw.security_name, tx.ticker, 'Scanned holding');
+      tx.qty           = toNumber(tx.qty, raw.qty, raw.quantity, raw.units, 1) || 1;
+      tx.avg_price     = toNumber(tx.avg_price, raw.avg_price, raw.average_price, raw.nav);
+      tx.current_price = toNumber(tx.current_price, raw.current_price, raw.market_price, raw.ltp, raw.cmp, tx.avg_price, tx.amount);
+      tx.invested      = toNumber(tx.invested, raw.invested_value, raw.cost_value, tx.qty * tx.avg_price, tx.amount);
+      tx.current_value = toNumber(tx.current_value, raw.current_value, raw.market_value, tx.qty * tx.current_price, tx.amount);
+      tx.pnl           = (tx.current_value || 0) - (tx.invested || 0);
+      tx.sector        = firstFilled(tx.sector, raw.sector, raw.category, tx.category, '');
+      tx.market        = firstFilled(tx.market, raw.market, raw.exchange, 'NSE');
+    } else if(wizardDocKind==='mf'){
+      tx.type = 'mf';
+      tx.description   = firstFilled(tx.description, raw.description, raw.fund_name, raw.scheme_name, raw.name, 'Scanned fund');
+      tx.fund_house    = firstFilled(tx.fund_house, raw.fund_house, raw.amc, '');
+      tx.units         = toNumber(tx.units, raw.units, raw.qty, raw.quantity);
+      tx.nav           = toNumber(tx.nav, raw.nav, raw.avg_price, raw.average_price);
+      tx.invested      = toNumber(tx.invested, raw.invested_value, raw.cost_value, tx.amount);
+      tx.current_value = toNumber(tx.current_value, raw.current_value, raw.market_value, tx.amount);
+      tx.mode          = firstFilled(tx.mode, raw.mode, 'Lumpsum');
+    } else if(wizardDocKind==='fd'){
+      tx.type = 'fd';
+    } else {
+      // bank/other: credit=income, debit=expense
+      tx.type = orig==='credit' ? 'income' : 'expense';
+    }
+  });
+
+  renderWizardStep3(container);
+}
+
+function renderWizardStep3(container){
+  const includedCount = txEdits.filter(t=>t.include).length;
+  const isHoldings = wizardDocKind==='stock' || wizardDocKind==='mf';
+
+  let cardsHtml = txEdits.map((tx,i)=>{
+    const tconf = TYPE_LABELS[tx.type] || TYPE_LABELS.expense;
+    const cats  = getCatsForType(tx.type);
+
+    // Stock holding card — richer layout
+    if(tx.type==='stock'){
+      return `
+      <div id="txcard-${i}" style="
+        padding:.9rem 1rem;border-radius:12px;border:1px solid var(--border);
+        background:${tx.include?'var(--bg3)':'var(--bg2)'};
+        opacity:${tx.include?1:.45};margin-bottom:.6rem;transition:all .2s
+      ">
+        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.55rem">
+          <button onclick="toggleTxInclude(${i})" style="
+            width:22px;height:22px;border-radius:6px;border:2px solid;flex-shrink:0;cursor:pointer;
+            font-size:.7rem;display:flex;align-items:center;justify-content:center;
+            ${tx.include?'border-color:var(--gold);background:var(--gold);color:var(--bg)':'border-color:var(--text3);background:transparent;color:transparent'}
+          ">✓</button>
+          <input value="${tx.ticker||''}" onchange="txEdits[${i}].ticker=this.value" placeholder="TICKER"
+            style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;color:var(--gold);font-family:inherit;font-size:.82rem;font-weight:700;padding:.25rem .45rem;width:90px;letter-spacing:.5px">
+          <div style="flex:1;font-size:.85rem;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+            contenteditable="true" onblur="txEdits[${i}].description=this.textContent">${tx.description||''}</div>
+          <select onchange="setTxMarket(${i},this.value)" style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-family:inherit;font-size:.72rem;padding:.2rem .35rem;cursor:pointer">
+            <option ${(tx.market||'NSE')==='NSE'?'selected':''}>NSE</option>
+            <option ${tx.market==='BSE'?'selected':''}>BSE</option>
+            <option ${tx.market==='NYSE'?'selected':''}>NYSE</option>
+            <option ${tx.market==='NASDAQ'?'selected':''}>NASDAQ</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;margin-bottom:.5rem">
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Qty</div>
+            <input type="number" value="${tx.qty||0}" onchange="txEdits[${i}].qty=Number(this.value);recalcStock(${i})"
+              style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.82rem;padding:.25rem .4rem;width:100%">
+          </div>
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Avg Price</div>
+            <input type="number" value="${tx.avg_price||0}" onchange="txEdits[${i}].avg_price=Number(this.value);recalcStock(${i})"
+              style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.82rem;padding:.25rem .4rem;width:100%">
+          </div>
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">CMP</div>
+            <input type="number" value="${tx.current_price||0}" onchange="txEdits[${i}].current_price=Number(this.value);recalcStock(${i})"
+              style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.82rem;padding:.25rem .4rem;width:100%">
+          </div>
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Sector</div>
+            <input value="${tx.sector||''}" onchange="txEdits[${i}].sector=this.value" placeholder="e.g. IT"
+              style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.82rem;padding:.25rem .4rem;width:100%">
+          </div>
+        </div>
+        <div style="display:flex;gap:1rem;font-size:.75rem">
+          <span style="color:var(--text3)">Invested: <strong style="color:var(--text)">₹${Number(tx.invested||0).toLocaleString()}</strong></span>
+          <span style="color:var(--text3)">Current: <strong style="color:var(--text)">₹${Number(tx.current_value||0).toLocaleString()}</strong></span>
+          <span style="color:var(--text3)">P&L: <strong style="color:${(tx.pnl||0)>=0?'var(--green)':'var(--red)'}">${(tx.pnl||0)>=0?'+':''}₹${Math.abs(tx.pnl||0).toLocaleString()}</strong></span>
+        </div>
+      </div>`;
+    }
+
+    // MF holding card
+    if(tx.type==='mf'){
+      return `
+      <div id="txcard-${i}" style="
+        padding:.9rem 1rem;border-radius:12px;border:1px solid var(--border);
+        background:${tx.include?'var(--bg3)':'var(--bg2)'};
+        opacity:${tx.include?1:.45};margin-bottom:.6rem;transition:all .2s
+      ">
+        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.55rem">
+          <button onclick="toggleTxInclude(${i})" style="
+            width:22px;height:22px;border-radius:6px;border:2px solid;flex-shrink:0;cursor:pointer;
+            font-size:.7rem;display:flex;align-items:center;justify-content:center;
+            ${tx.include?'border-color:var(--gold);background:var(--gold);color:var(--bg)':'border-color:var(--text3);background:transparent;color:transparent'}
+          ">✓</button>
+          <div style="flex:1;font-size:.85rem;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis"
+            contenteditable="true" onblur="txEdits[${i}].description=this.textContent">${tx.description||''}</div>
+          <select onchange="txEdits[${i}].category=this.value" style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-family:inherit;font-size:.72rem;padding:.2rem .35rem;cursor:pointer">
+            ${['Equity','Debt','Hybrid','Index','ELSS','Liquid','Sectoral','International'].map(c=>`<option ${tx.category===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;margin-bottom:.5rem">
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Units</div>
+            <input type="number" value="${tx.units||0}" onchange="txEdits[${i}].units=Number(this.value)"
+              style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.82rem;padding:.25rem .4rem;width:100%">
+          </div>
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">NAV</div>
+            <input type="number" value="${tx.nav||0}" onchange="txEdits[${i}].nav=Number(this.value)"
+              style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.82rem;padding:.25rem .4rem;width:100%">
+          </div>
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Invested</div>
+            <input type="number" value="${tx.invested||0}" onchange="txEdits[${i}].invested=Number(this.value)"
+              style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.82rem;padding:.25rem .4rem;width:100%">
+          </div>
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Current</div>
+            <input type="number" value="${tx.current_value||0}" onchange="txEdits[${i}].current_value=Number(this.value)"
+              style="background:var(--bg4);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:.82rem;padding:.25rem .4rem;width:100%">
+          </div>
+        </div>
+        <div style="display:flex;gap:.35rem;flex-wrap:wrap">
+          ${['Lumpsum','SIP'].map(m=>`<button onclick="txEdits[${i}].mode='${m}';renderWizardStep3(document.getElementById('scanResults'))" style="padding:.18rem .5rem;border-radius:20px;font-size:.68rem;font-weight:500;cursor:pointer;border:1px solid;font-family:inherit;${(tx.mode||'Lumpsum')===m?'border-color:var(--gold);color:var(--gold);background:var(--golddim)':'border-color:var(--border);color:var(--text3);background:transparent'}">${m}</button>`).join('')}
+        </div>
+      </div>`;
+    }
+
+    // Default card for expense / income / fd / skip
+    return `
+    <div id="txcard-${i}" style="
+      padding:1rem;border-radius:12px;border:1px solid var(--border);
+      background:${tx.include?'var(--bg3)':'var(--bg2)'};
+      opacity:${tx.include?1:.45};margin-bottom:.6rem;transition:all .2s
+    ">
+      <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem">
+        <button onclick="toggleTxInclude(${i})" style="
+          width:22px;height:22px;border-radius:6px;border:2px solid;flex-shrink:0;cursor:pointer;
+          font-size:.7rem;display:flex;align-items:center;justify-content:center;
+          ${tx.include?'border-color:var(--gold);background:var(--gold);color:var(--bg)':'border-color:var(--text3);background:transparent;color:transparent'}
+        ">✓</button>
+        <input value="${tx.date}" onchange="txEdits[${i}].date=this.value" style="
+          background:var(--bg4);border:1px solid var(--border);border-radius:6px;
+          color:var(--text);font-family:inherit;font-size:.78rem;padding:.25rem .45rem;width:108px
+        ">
+        <div style="flex:1;font-size:.85rem;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+          contenteditable="true" onblur="txEdits[${i}].description=this.textContent"
+        >${tx.description||'—'}</div>
+        <input type="number" value="${tx.amount}" onchange="txEdits[${i}].amount=Number(this.value)" style="
+          background:var(--bg4);border:1px solid var(--border);border-radius:6px;
+          color:${tconf.color};font-family:inherit;font-size:.88rem;font-weight:700;
+          padding:.25rem .45rem;width:90px;text-align:right
+        ">
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:.35rem;align-items:center">
+        ${Object.entries(TYPE_LABELS).map(([k,v])=>`
+          <button onclick="setTxType(${i},'${k}')" style="
+            padding:.22rem .55rem;border-radius:20px;font-size:.7rem;font-weight:600;
+            cursor:pointer;border:1.5px solid;font-family:inherit;transition:all .15s;
+            ${tx.type===k
+              ? `border-color:${v.color};color:${v.color};background:${v.color}18`
+              : 'border-color:var(--border);color:var(--text3);background:transparent'}
+          ">${v.icon} ${v.label}</button>
+        `).join('')}
+      </div>
+      ${tx.type!=='skip' && cats.length ? `
+      <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.5rem">
+        ${cats.map(c=>`
+          <button onclick="setTxCat(${i},'${c.replace(/'/g,"&#39;")}')" style="
+            padding:.18rem .5rem;border-radius:20px;font-size:.68rem;font-weight:500;
+            cursor:pointer;border:1px solid;font-family:inherit;transition:all .15s;
+            ${tx.category===c
+              ? 'border-color:var(--gold);color:var(--gold);background:var(--golddim)'
+              : 'border-color:var(--border);color:var(--text3);background:transparent'}
+          ">${c}</button>
+        `).join('')}
+      </div>` : ''}
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div style="margin-top:1rem">
+      ${wizardStepBar(3)}
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:1.25rem 0 .75rem;flex-wrap:wrap;gap:.5rem">
+        <div>
+          <div style="font-size:1rem;font-weight:600;color:var(--text)">${txEdits.length} ${isHoldings?'holdings':'transactions'} from <span style="color:var(--gold)">${wizardSource}</span></div>
+          <div style="font-size:.78rem;color:var(--text3);margin-top:.15rem">${isHoldings?'Edit any field inline. Tap ✓ to include/exclude.':'Tap type & category to correct. Tap ✓ to include/exclude.'}</div>
+        </div>
+        ${!isHoldings ? `<div style="display:flex;gap:.4rem;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="bulkSetType('expense')">All → 💸 Expense</button>
+          <button class="btn btn-outline btn-sm" onclick="bulkSetType('income')">All → 💰 Income</button>
+          <button class="btn btn-outline btn-sm" onclick="bulkSetType('skip')">All → ⏭ Skip</button>
+        </div>` : ''}
+      </div>
+
+      <div id="txCardList">${cardsHtml}</div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border)">
+        <button class="btn btn-outline btn-sm" onclick="wizardBack()">← Back</button>
+        <button class="btn btn-gold" onclick="wizardFinish()">✓ Save ${includedCount} ${isHoldings?'holdings':'items'} to Dashboard</button>
+      </div>
+    </div>`;
+}
+
+function setTxMarket(i, market){
+  txEdits[i].market = market;
+}
+
+function recalcStock(i){
+  const tx = txEdits[i];
+  tx.invested      = (tx.qty||0) * (tx.avg_price||0);
+  tx.current_value = (tx.qty||0) * (tx.current_price||0);
+  tx.pnl           = tx.current_value - tx.invested;
+  // Re-render to reflect updated P&L display
+  renderWizardStep3(document.getElementById('scanResults'));
+}
+
+function toggleTxInclude(i){
+  txEdits[i].include = !txEdits[i].include;
+  const card = document.getElementById('txcard-'+i);
+  const btn  = card.querySelector('button');
+  const inc  = txEdits[i].include;
+  card.style.opacity    = inc ? 1 : 0.45;
+  card.style.background = inc ? 'var(--bg3)' : 'var(--bg2)';
+  btn.style.borderColor = inc ? 'var(--gold)' : 'var(--text3)';
+  btn.style.background  = inc ? 'var(--gold)' : 'transparent';
+  btn.style.color       = inc ? 'var(--bg)' : 'transparent';
+  // Update button count
+  document.querySelector('.btn-gold[onclick="wizardFinish()"]').textContent =
+    `✓ Save ${txEdits.filter(t=>t.include).length} ${(wizardDocKind==='stock'||wizardDocKind==='mf')?'holdings':'items'} to Dashboard`;
+}
+
+function setTxType(i, type){
+  txEdits[i].type = type;
+  // Re-render just this card by re-rendering the whole list (fast enough)
+  const container = document.getElementById('scanResults');
+  renderWizardStep3(container);
+}
+
+function setTxCat(i, cat){
+  txEdits[i].category = cat;
+  const container = document.getElementById('scanResults');
+  renderWizardStep3(container);
+}
+
+function bulkSetType(type){
+  txEdits.forEach(tx=>{ if(tx.include) tx.type = type; });
+  renderWizardStep3(document.getElementById('scanResults'));
+}
+
+// ── Wizard step bar ─────────────────────────────
+function wizardStepBar(active){
+  const steps = ['Statement Type','Source','Review'];
+  return `<div style="display:flex;gap:0;margin-bottom:.25rem">
+    ${steps.map((s,i)=>{
+      const n = i+1;
+      const done    = n < active;
+      const current = n === active;
+      return `<div style="display:flex;align-items:center;gap:.4rem;flex:1">
+        <div style="
+          width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+          font-size:.7rem;font-weight:700;flex-shrink:0;
+          ${done    ? 'background:var(--green);color:var(--bg)' :
+            current ? 'background:var(--gold);color:var(--bg)' :
+                      'background:var(--bg4);color:var(--text3)'}
+        ">${done?'✓':n}</div>
+        <span style="font-size:.72rem;font-weight:${current?600:400};color:${current?'var(--text)':'var(--text3)'}">${s}</span>
+        ${n<3?`<div style="flex:1;height:1px;background:${done?'var(--green)':'var(--border)'};margin:0 .25rem"></div>`:''}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ── Direct save (no transactions — salary / investment) ──
+function wizardDirectSave(){
+  const parsed = lastScanParsed;
+  if(!parsed) return;
+  const investmentRows = getParsedInvestmentRows(parsed);
+
+  if(wizardDocKind==='salary' && parsed.salary_data && Object.values(parsed.salary_data).some(v=>v)){
+    const sd = parsed.salary_data;
+    const item = {
+      id:uid(), date:parsed.date||new Date().toISOString().split('T')[0],
+      source:wizardSource||parsed.issuer||'Employer', type:'Salary',
+      description:'Salary — '+(parsed.date||''), gross_amount:sd.gross||0,
+      deductions:(sd.pf_deduction||0)+(sd.tax_deducted||0), net_amount:sd.net_pay||0,
+      currency:'INR', recurring:'Yes',
+      notes:'Extracted from payslip. PF:'+fmt(sd.pf_deduction||0)+' Tax:'+fmt(sd.tax_deducted||0),
+      created_at:new Date().toISOString()
+    };
+    DATA.income.push(item);
+    // Also update salary structure
+    DATA.salary_structure = [];
+    const comps = {basic:sd.basic, hra:sd.hra, special_allowance:sd.special_allowance};
+    if(sd.other_components) Object.assign(comps, sd.other_components);
+    for(const [k,v] of Object.entries(comps)){
+      if(v) DATA.salary_structure.push({id:uid(), component:k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()), type:'earning', monthly_amount:v, annual_amount:v*12});
+    }
+    if(sd.pf_deduction) DATA.salary_structure.push({id:uid(), component:'PF Deduction', type:'deduction', monthly_amount:sd.pf_deduction, annual_amount:sd.pf_deduction*12});
+    if(sd.tax_deducted) DATA.salary_structure.push({id:uid(), component:'Income Tax (TDS)', type:'deduction', monthly_amount:sd.tax_deducted, annual_amount:sd.tax_deducted*12});
+    saveData(); syncItemToSheet('income',item,'add'); renderAll();
+    toast('Salary saved to Income ✓');
+  } else if((wizardDocKind==='stock'||wizardDocKind==='mf') && investmentRows.length){
+    const rows = investmentRows.map(row => createScanEditRow(row, parsed, wizardDocKind));
+    if(wizardDocKind==='stock'){
+      rows.forEach(tx=>{
+        const qty = toNumber(tx.qty, tx.units, 1) || 1;
+        const avg = toNumber(tx.avg_price, tx.nav);
+        const cmp = toNumber(tx.current_price, avg);
+        const invested = toNumber(tx.invested, qty * avg);
+        const current = toNumber(tx.current_value, qty * cmp, invested);
+        const pnl = current - invested;
+        const item = {
+          id:uid(),
+          ticker:(firstFilled(tx.ticker, tx.description?.split(' ')[0], 'SCAN')+'').toUpperCase(),
+          company:firstFilled(tx.description, tx.ticker, 'Scanned Holding'),
+          market:firstFilled(tx.market, 'NSE'),
+          broker:wizardSource||'',
+          sector:firstFilled(tx.sector, tx.category, ''),
+          qty,
+          avg_price:avg,
+          current_price:cmp,
+          currency:(tx.market==='NYSE'||tx.market==='NASDAQ') ? 'USD' : 'INR',
+          invested,
+          current_value:current,
+          pnl,
+          pnl_pct:invested ? ((pnl/invested)*100).toFixed(2) : '0.00',
+          last_updated:new Date().toISOString()
+        };
+        DATA.stocks.push(item);
+        syncItemToSheet('stocks',item,'add');
+      });
+      saveData(); renderAll(); toast(`${rows.length} stock holding${rows.length>1?'s':''} saved ✓`);
+    } else {
+      rows.forEach(tx=>{
+        const invested = toNumber(tx.invested, tx.amount);
+        const current = toNumber(tx.current_value, invested);
+        const item = {
+          id:uid(),
+          name:firstFilled(tx.description, 'Scanned Fund'),
+          category:firstFilled(tx.category, 'Equity'),
+          platform:wizardSource||'',
+          mode:firstFilled(tx.mode, 'Lumpsum'),
+          invested,
+          current_value:current,
+          returns:current - invested,
+          nav:toNumber(tx.nav, tx.avg_price),
+          units:toNumber(tx.units, tx.qty),
+          last_updated:new Date().toISOString()
+        };
+        DATA.mutual_funds.push(item);
+        syncItemToSheet('mutual_funds',item,'add');
+      });
+      saveData(); renderAll(); toast(`${rows.length} mutual fund holding${rows.length>1?'s':''} saved ✓`);
+    }
+  } else {
+    toast('Saved — no transactions to add','info');
+  }
+  showWizardDone(document.getElementById('scanResults'));
+}
+
+// ── Finish: commit all transactions ─────────────
+function wizardFinish(){
+  let counts = {expense:0, income:0, stock:0, mf:0, fd:0, skip:0};
+
+  txEdits.forEach(tx=>{
+    if(!tx.include || tx.type==='skip'){ counts.skip++; return; }
+
+    if(tx.type==='expense'){
+      const item = {id:uid(), date:tx.date, description:tx.description, amount:tx.amount,
+        type:'expense', category:tx.category||'Other',
+        payment_mode:wizardDocKind==='credit_card'?'Credit Card':'Scanned',
+        account:wizardSource, notes:'From '+wizardSource+' statement',
+        created_at:new Date().toISOString()};
+      DATA.transactions.push(item); syncItemToSheet('transactions',item,'add'); counts.expense++;
+
+    } else if(tx.type==='income'){
+      const item = {id:uid(), date:tx.date, source:wizardSource,
+        type:tx.category||'Other', description:tx.description,
+        gross_amount:tx.amount, deductions:0, net_amount:tx.amount,
+        currency:'INR', notes:'From '+wizardSource+' statement',
+        created_at:new Date().toISOString()};
+      DATA.income.push(item); syncItemToSheet('income',item,'add'); counts.income++;
+
+    } else if(tx.type==='stock'){
+      const qty   = Number(tx.qty||1);
+      const avg   = Number(tx.avg_price||0);
+      const cmp   = Number(tx.current_price||avg);
+      const inv   = Number(tx.invested||0) || qty*avg;
+      const cur   = Number(tx.current_value||0) || qty*cmp;
+      const pnl   = cur - inv;
+      const pct   = inv ? ((pnl/inv)*100).toFixed(2) : '0.00';
+      const item  = {
+        id:uid(),
+        ticker:       (tx.ticker||tx.description?.split(' ')[0]||'SCAN').toUpperCase(),
+        company:      tx.description||tx.ticker||'',
+        market:       tx.market||'NSE',
+        sector:       tx.sector||tx.category||'',
+        broker:       wizardSource,
+        qty,
+        avg_price:    avg,
+        current_price:cmp,
+        currency:     (tx.market==='NYSE'||tx.market==='NASDAQ') ? 'USD' : 'INR',
+        invested:     inv,
+        current_value:cur,
+        pnl,
+        pnl_pct:      pct,
+        last_updated: new Date().toISOString()
+      };
+      DATA.stocks.push(item); syncItemToSheet('stocks',item,'add'); counts.stock++;
+
+    } else if(tx.type==='mf'){
+      const inv = Number(tx.invested||tx.amount||0);
+      const cur = Number(tx.current_value||inv);
+      const item = {
+        id:uid(),
+        name:         tx.description||'Scanned Fund',
+        fund_house:   tx.fund_house||wizardSource||'',
+        category:     tx.category||'Equity',
+        platform:     wizardSource,
+        mode:         tx.mode||'Lumpsum',
+        units:        Number(tx.units||0),
+        nav:          Number(tx.nav||0),
+        invested:     inv,
+        current_value:cur,
+        returns:      cur - inv,
+        last_updated: new Date().toISOString()
+      };
+      DATA.mutual_funds.push(item); syncItemToSheet('mutual_funds',item,'add'); counts.mf++;
+
+    } else if(tx.type==='fd'){
+      const item = {id:uid(), bank:wizardSource, principal:tx.amount,
+        interest_rate:'', start_date:tx.date, status:'Active'};
+      DATA.fixed_deposits.push(item); syncItemToSheet('fixed_deposits',item,'add'); counts.fd++;
+    }
+  });
+
+  saveData(); renderAll();
+
+  const summary = Object.entries(counts).filter(([k,v])=>v>0&&k!=='skip').map(([k,v])=>`${v} ${k}`).join(', ');
+  toast(`Saved: ${summary||'nothing'} ✓`);
+  showWizardDone(document.getElementById('scanResults'), counts);
+}
+
+function showWizardDone(container, counts={}){
+  // Build smart nav buttons based on what was actually saved
+  const navBtns = [];
+  if(counts.stock>0)   navBtns.push(`<button class="btn btn-gold btn-sm" onclick="switchTab('stocks')">📈 View Stocks</button>`);
+  if(counts.mf>0)      navBtns.push(`<button class="btn btn-gold btn-sm" onclick="switchTab('mf')">📊 View Mutual Funds</button>`);
+  if(counts.income>0)  navBtns.push(`<button class="btn btn-gold btn-sm" onclick="switchTab('income')">💰 View Income</button>`);
+  if(counts.expense>0) navBtns.push(`<button class="btn btn-gold btn-sm" onclick="switchTab('transactions')">💸 View Transactions</button>`);
+  if(counts.fd>0)      navBtns.push(`<button class="btn btn-gold btn-sm" onclick="switchTab('accounts')">🔒 View Accounts</button>`);
+  navBtns.push(`<button class="btn btn-outline btn-sm" onclick="document.getElementById('scanResults').innerHTML='';document.getElementById('scanPreviewArea').innerHTML=''">Scan Another</button>`);
+
+  container.innerHTML = `
+    <div style="text-align:center;padding:2.5rem 1rem;background:var(--bg3);border-radius:14px;border:1px solid var(--border);margin-top:1rem">
+      <div style="font-size:2.5rem;margin-bottom:.75rem">✅</div>
+      <div style="font-size:1.05rem;font-weight:600;color:var(--text);margin-bottom:.4rem">All done!</div>
+      <div style="font-size:.82rem;color:var(--text3);margin-bottom:1.25rem">Data saved to your dashboard.</div>
+      <div style="display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap">${navBtns.join('')}</div>
+    </div>`;
+}
+
+// ── legacy stubs (kept so old references don't break) ──
+function addScannedAsAccount(){ }
+function addScannedSalaryAsIncome(){ wizardDirectSave(); }
+function addScannedSalaryStructure(){ }
+function addScannedAsStock(){ wizardDirectSave(); }
+function addScannedAsMF(){ wizardDirectSave(); }
+function getSelectedBroker(){ return wizardSource; }
+function getSelectedSalaryAccount(){ return null; }
+function setScanDest(){ }
+function setScanDestAll(){ }
+function toggleAllScanRows(){ }
+function updateScanSelectedCount(){ }
+function updateScanField(){ }
+function addSelectedScannedItems(){ wizardFinish(); }
+
+
+function renderScanHistory(){
+  const scans = JSON.parse(localStorage.getItem(SCAN_KEY)||'[]');
+  const div = document.getElementById('scanHistory');
+  if(!scans.length){div.innerHTML='<div class="empty-state"><h4>No scans yet</h4><p>Upload a statement to get started</p></div>';return;}
+  div.innerHTML = scans.map(s=>`
+    <div class="di">
+      <div class="di-icon" style="background:var(--golddim);color:var(--gold)">📄</div>
+      <div class="di-info"><div class="di-name">${s.filename}</div><div class="di-cat">${s.type||'—'} · ${s.issuer||'—'} · ${s.txCount} txns</div></div>
+      <div class="di-amt" style="font-size:.7rem;color:var(--text3)">${dateStr(s.timestamp)}</div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════════
+function loadSettingsUI(){
+  document.getElementById('cfgSheetURL').value = CONFIG.sheetURL||'';
+  document.getElementById('cfgAPIKey').value = CONFIG.apiKey||'';
+  if(CONFIG.sheetURL) setSyncStatus('ok');
+  renderScanHistory();
+}
+function saveSettings(){
+  CONFIG.sheetURL = document.getElementById('cfgSheetURL').value.trim();
+  CONFIG.apiKey = document.getElementById('cfgAPIKey').value.trim();
+  saveConfig();
+  toast('Settings saved');
+}
+
+function exportLocalData(){
+  const blob = new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='wcc_backup_'+new Date().toISOString().split('T')[0]+'.json';
+  a.click();
+  toast('Data exported');
+}
+function importLocalData(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const r = new FileReader();
+  r.onload = ev=>{
+    try{
+      const imported = JSON.parse(ev.target.result);
+      DATA = {...DEFAULTS,...imported};
+      saveData();renderAll();
+      toast('Data imported successfully');
+    }catch(err){toast('Invalid JSON file','err');}
+  };
+  r.readAsText(file);
+}
+
+// ═══════════════════════════════════════════
+//  CHART HELPERS
+// ═══════════════════════════════════════════
+Chart.defaults.color='#8b8b9a';
+Chart.defaults.borderColor='rgba(255,255,255,.04)';
+Chart.defaults.font.family="'DM Sans',sans-serif";
+Chart.defaults.font.size=10;
+Chart.defaults.plugins.legend.labels.boxWidth=8;
+Chart.defaults.plugins.legend.labels.padding=12;
+Chart.defaults.plugins.tooltip.backgroundColor='rgba(9,10,14,.92)';
+Chart.defaults.plugins.tooltip.borderColor='rgba(212,168,83,.25)';
+Chart.defaults.plugins.tooltip.borderWidth=1;
+Chart.defaults.plugins.tooltip.padding=8;
+Chart.defaults.plugins.tooltip.cornerRadius=8;
+
+function destroyChart(id){ if(CHARTS[id]){CHARTS[id].destroy();delete CHARTS[id];} }
+
+// ═══════════════════════════════════════════
+//  STOCK SEARCH MODAL
+// ═══════════════════════════════════════════
+
+let stkSelected = null;   // { ticker, company, symbol, exchange, price, change, changePct, sector }
+let stkSearchTimer = null;
+let stkEditingId = null;
+
+function openStockModal(prefill = {}) {
+  stkEditingId = prefill.id || null;
+  document.getElementById('stockModalTitle').textContent = stkEditingId ? 'Edit Stock Holding' : 'Add Stock Holding';
+  stkReset(false);
+
+  if (stkEditingId) {
+    // Pre-populate for edit — skip search step
+    stkSelected = {
+      ticker: prefill.ticker || '',
+      company: prefill.company || prefill.description || prefill.ticker || '',
+      symbol: (prefill.ticker || '') + (prefill.market === 'NSE' ? '.NS' : prefill.market === 'BSE' ? '.BO' : ''),
+      exchange: prefill.market || 'NSE',
+      price: prefill.current_price || 0,
+      sector: prefill.sector || ''
+    };
+    stkShowStep2(stkSelected);
+    document.getElementById('stkQty').value         = prefill.qty || '';
+    document.getElementById('stkAvgPrice').value    = prefill.avg_price || '';
+    document.getElementById('stkCurrentPrice').value = prefill.current_price || '';
+    document.getElementById('stkSector').value      = prefill.sector || '';
+    const mktEl = document.getElementById('stkMarket');
+    if (prefill.market) [...mktEl.options].forEach(o => { o.selected = o.value === prefill.market; });
+    stkRecalc();
+  }
+
+  document.getElementById('stockModalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('stkSearchInput').focus(), 80);
+}
+
+function closeStockModal() {
+  document.getElementById('stockModalOverlay').classList.remove('open');
+  stkEditingId = null;
+  stkSelected = null;
+}
+
+function stkReset(focusInput = true) {
+  stkSelected = null;
+  document.getElementById('stkStep1').style.display = '';
+  document.getElementById('stkStep2').style.display = 'none';
+  document.getElementById('stkSaveBtn').style.display = 'none';
+  document.getElementById('stkSearchInput').value = '';
+  document.getElementById('stkDropdown').style.display = 'none';
+  document.getElementById('stkSearchStatus').textContent = '';
+  if (focusInput) setTimeout(() => document.getElementById('stkSearchInput').focus(), 60);
+}
+
+function stkSearchDebounce(q) {
+  clearTimeout(stkSearchTimer);
+  const dropdown = document.getElementById('stkDropdown');
+  const status   = document.getElementById('stkSearchStatus');
+  q = q.trim();
+  if (!q) { dropdown.style.display = 'none'; status.textContent = ''; return; }
+  status.textContent = 'Searching…';
+  stkSearchTimer = setTimeout(() => stkDoSearch(q), 350);
+}
+
+// ═══════════════════════════════════════════
+//  ANGEL ONE SMARTAPI INTEGRATION
+// ═══════════════════════════════════════════
+
+const AO = {
+  apiKey:     'aktMsqo3',
+  clientId:   'AAAA002545',
+  totpSecret: 'HTVRMLMR55UDRJOJCUVHFYWKXY',
+  token:      null,
+  refreshToken: null,
+  tokenExpiry:  0,
+  mpin:       null,   // entered by user each session, never stored
+  base: 'https://ao-proxy.iocscadasync.workers.dev'
+};
+
+// ── MPIN prompt modal ──
+function aoAskMPIN() {
+  return new Promise((resolve) => {
+    // Remove existing if any
+    document.getElementById('mpinOverlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'mpinOverlay';
+    overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center`;
+    overlay.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:2rem;width:320px;box-shadow:0 25px 80px rgba(0,0,0,.6);text-align:center">
+        <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--gold),var(--gold2));display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto .75rem">🔐</div>
+        <div style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:600;margin-bottom:.35rem">Angel One Login</div>
+        <div style="font-size:.78rem;color:var(--text3);margin-bottom:1.25rem">Enter your 4-digit MPIN to connect.<br>Never stored — session only.</div>
+        <div style="position:relative;margin-bottom:1rem">
+          <input id="mpinInput" type="password" maxlength="10" placeholder="Enter MPIN"
+            style="width:100%;padding:.65rem 1rem;background:var(--bg3);border:1.5px solid var(--gold);border-radius:10px;color:var(--text);font-family:inherit;font-size:1.1rem;text-align:center;letter-spacing:.3rem;outline:none"
+            onkeydown="if(event.key==='Enter') document.getElementById('mpinSubmit').click()">
+        </div>
+        <div id="mpinError" style="color:var(--red);font-size:.75rem;margin-bottom:.75rem;min-height:1rem"></div>
+        <div style="display:flex;gap:.5rem">
+          <button onclick="document.getElementById('mpinOverlay').remove();window._mpinResolve(null)" 
+            style="flex:1;padding:.55rem;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text2);font-family:inherit;font-size:.85rem;cursor:pointer">Cancel</button>
+          <button id="mpinSubmit" onclick="
+            const v = document.getElementById('mpinInput').value.trim();
+            if(!v){document.getElementById('mpinError').textContent='Please enter your MPIN';return;}
+            document.getElementById('mpinOverlay').remove();
+            window._mpinResolve(v);
+          " style="flex:1;padding:.55rem;border-radius:8px;border:none;background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--bg);font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer">Connect</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    window._mpinResolve = resolve;
+    setTimeout(() => document.getElementById('mpinInput')?.focus(), 80);
+  });
+}
+
+// ── TOTP Generator (RFC 6238) — no external lib needed ──
+async function aoGenerateTOTP(secret) {
+  // Decode base32 secret
+  const b32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const clean = secret.toUpperCase().replace(/[^A-Z2-7]/g,'');
+  let bits = '';
+  for (const c of clean) {
+    const v = b32.indexOf(c);
+    bits += v.toString(2).padStart(5,'0');
+  }
+  const bytes = new Uint8Array(Math.floor(bits.length/8));
+  for (let i=0;i<bytes.length;i++) bytes[i] = parseInt(bits.slice(i*8,i*8+8),2);
+
+  // HMAC-SHA1 with time counter
+  const counter = Math.floor(Date.now()/1000/30);
+  const msg = new Uint8Array(8);
+  let c = counter;
+  for (let i=7;i>=0;i--){msg[i]=c&0xff;c>>=8;}
+
+  const key  = await crypto.subtle.importKey('raw',bytes,{name:'HMAC',hash:'SHA-1'},false,['sign']);
+  const sig  = new Uint8Array(await crypto.subtle.sign('HMAC',key,msg));
+  const off  = sig[19]&0xf;
+  const otp  = ((sig[off]&0x7f)<<24|(sig[off+1]&0xff)<<16|(sig[off+2]&0xff)<<8|(sig[off+3]&0xff))%1000000;
+  return otp.toString().padStart(6,'0');
+}
+
+// ── Login & get JWT token ──
+async function aoLogin() {
+  if (AO.token && Date.now() < AO.tokenExpiry) return AO.token;
+  // Ask for MPIN if not already provided this session
+  if (!AO.mpin) {
+    AO.mpin = await aoAskMPIN();
+    if (!AO.mpin) throw new Error('MPIN not provided');
+  }
+  const totp = await aoGenerateTOTP(AO.totpSecret);
+  const body = JSON.stringify({ clientcode: AO.clientId, password: AO.mpin, totp });
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'X-UserType': 'USER',
+    'X-SourceID': 'WEB',
+    'X-PrivateKey': AO.apiKey
+  };
+  const r = await fetch(`${AO.base}/rest/auth/angelbroking/user/v1/loginByPassword`, {method:'POST', headers, body});
+  const d = await r.json();
+  if (!d.data?.jwtToken) throw new Error(d.message || 'Angel One login failed');
+  AO.token        = d.data.jwtToken;
+  AO.refreshToken = d.data.refreshToken;
+  AO.tokenExpiry  = Date.now() + 55*60*1000; // ~55 min
+  return AO.token;
+}
+
+// ── Fetch live quote for a symbol token ──
+async function aoGetQuote(symbolToken, exchange = 'NSE') {
+  const token = await aoLogin();
+  const body  = JSON.stringify({ mode:'FULL', exchangeTokens:{ [exchange]: [symbolToken] } });
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${token}`,
+    'X-UserType': 'USER',
+    'X-SourceID': 'WEB',
+    'X-PrivateKey': AO.apiKey
+  };
+  const r = await fetch(`${AO.base}/rest/secure/angelbroking/market/v1/quote/`, {method:'POST', headers, body});
+  const d = await r.json();
+  const q = d.data?.fetched?.[0];
+  if (!q) throw new Error('No quote data');
+  return { price: q.ltp, open: q.open, close: q.close, high: q.high, low: q.low,
+           change: q.ltp - q.close, changePct: ((q.ltp - q.close)/q.close*100), volume: q.tradingSymbol };
+}
+
+// ── Symbol search via Angel One ──
+async function aoSearchSymbol(query) {
+  const token = await aoLogin();
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${token}`,
+    'X-UserType': 'USER',
+    'X-SourceID': 'WEB',
+    'X-PrivateKey': AO.apiKey
+  };
+  const r = await fetch(`${AO.base}/rest/secure/angelbroking/order/v1/searchScrip?exchange=NSE&searchscrip=${encodeURIComponent(query)}`, {headers});
+  const d = await r.json();
+  return d.data || [];
+}
+
+// ── Resolve ticker → Angel One symbol token (uses local map + API fallback) ──
+// Token map for top NSE stocks (symbolToken needed for quote API)
+const AO_TOKEN_MAP = {
+  'RELIANCE':'2885','TCS':'11536','HDFCBANK':'1333','INFY':'1594','ICICIBANK':'4963',
+  'HINDUNILVR':'1394','ITC':'1660','SBIN':'3045','BHARTIARTL':'10604','KOTAKBANK':'1922',
+  'LT':'11483','AXISBANK':'5900','ASIANPAINT':'236','MARUTI':'10999','TITAN':'3506',
+  'SUNPHARMA':'3351','WIPRO':'3787','ULTRACEMCO':'11532','BAJFINANCE':'317','NESTLEIND':'17963',
+  'HAL':'2303','MAZDOCK':'3001','BEL':'383','IRFC':'13611','RVNL':'15083',
+  'COALINDIA':'20374','POWERGRID':'14977','NTPC':'11630','ONGC':'2475','IOC':'1624',
+  'BPCL':'526','HPCL':'1279','TATASTEEL':'3499','HINDALCO':'1363','JSWSTEEL':'11723',
+  'VEDL':'3063','NMDC':'15332','GRASIM':'315','DRREDDY':'881','CIPLA':'694',
+  'DIVISLAB':'10940','APOLLOHOSP':'157','MAXHEALTH':'19234','DMART':'7432',
+  'ZOMATO':'5097','PAYTM':'6705','BAJAJFINSV':'16675','HDFCLIFE':'467','SBILIFE':'21808',
+  'ICICIGI':'15083','LICI':'1922','MUTHOOTFIN':'3068','CHOLAFIN':'1023',
+  'BAJAJHFL':'4668','HOMEFIRST':'19234','HDFCAMC':'14417','ICICIAMC':'19234',
+  'CDSL':'12169','BSE':'543220','MCX':'11483','DIXON':'15034','AMBER':'14413',
+  'VOLTAS':'3563','HAVELLS':'2791','POLYCAB':'14418','ADANIPORTS':'15083',
+  'TATAPOWER':'3426','HCLTECH':'7229','TECHM':'13538','MPHASIS':'4503',
+  'PERSISTENT':'18365','COFORGE':'10693','LTIM':'17818','TATAELXSI':'2283',
+  'KAYNES':'19219','ZYDUSLIFE':'7459','TORNTPHARM':'3518','MANKIND':'10440',
+  'EICHERMOT':'910','HEROMOTOCO':'1348','TATAMOTORS':'3432','BAJAJ-AUTO':'16669',
+  'ASHOKLEY':'212','ESCORTS':'3253','INDIGO':'11195','CONCOR':'1317','IRCTC':'13611',
+  'VBL':'9389','BRITANNIA':'547','DABUR':'910','MARICO':'4067','COLPAL':'1623',
+  'TATACONSUM':'3432','PAGEIND':'14413','DELHIVERY':'21614','NAUKRI':'13751',
+  'INDHOTEL':'1512','DLF':'14732','GODREJPROP':'2622','IREDA':'16675','WAAREEENER':'19234',
+  'SUZLON':'3273','BHEL':'438','SIEMENS':'3500','CAMS':'13751','JIOFIN':'543620',
+  'AFFLE':'15071','DATAPATTNS':'17574','AEROFLEX':'21058','AVALON':'15071',
+  'APARINDS':'3503','ASTRAL':'14418','AUBANK':'10690','AZAD':'21614',
+  'BALKRISIND':'335','BAJFINANCE':'317','BORORENEW':'21614','CIPLA':'694',
+  'CONCOR':'1317','CPPLUS':'14413','DIXON':'15034','EICHERMOT':'910',
+  'ESCORTS':'3253','GATEWAY':'10693','GMDCLTD':'1299','GRSE':'21058',
+  'HAL':'2303','HAPPYFORGE':'21614','HFCL':'1617','HINDCOPPER':'1326',
+  'ICICIGI':'15083','INOXINDIA':'21614','IONEXCHANG':'3001','IREDA':'16675',
+  'JKCEMENT':'13011','JUBLFOOD':'18096','KAYNES':'19219','KOTAKBANK':'1922',
+  'KPRMILL':'19234','LALPATHLAB':'10440','LATENTVIEW':'21058','MCX':'11483',
+  'MAXHEALTH':'19234','METROBRAND':'17032','MTARTECH':'21058','MUTHOOTFIN':'3068',
+  'NAVINFLUOR':'3451','NETWEB':'21058','NIVABUPA':'21614','NUVAMA':'21614',
+  'OBEROIRLTY':'3554','OLECTRA':'21614','PAGEIND':'14413','PIIND':'2452',
+  'PNCINFRA':'18281','POLYCAB':'14418','PRAJIND':'2406','RADICO':'1560',
+  'RATEGAIN':'21614','RVNL':'15083','SBILIFE':'21808','SRF':'2962',
+  'STARCEMENT':'16675','TATAELXSI':'2283','TATATECH':'21614','TEGA':'21614',
+  'TIINDIA':'3426','TITAGARH':'3513','TITAN':'3506','ULTRACEMCO':'11532',
+  'UNOMINDA':'14413','VBL':'9389','WAAREEENER':'19234','WIPRO':'3787',
+};
+
+async function aoGetPriceByTicker(ticker) {
+  ticker = ticker.toUpperCase().trim();
+  let symbolToken = AO_TOKEN_MAP[ticker];
+
+  // If not in local map, search via API
+  if (!symbolToken) {
+    const results = await aoSearchSymbol(ticker);
+    const match = results.find(r => r.tradingsymbol === ticker && r.exch_seg === 'NSE');
+    if (match) symbolToken = match.symboltoken;
+  }
+
+  if (!symbolToken) throw new Error(`Symbol token not found for ${ticker}`);
+  const quote = await aoGetQuote(symbolToken, 'NSE');
+  return { price: quote.price, change: quote.change, changePct: quote.changePct };
+}
+
+// ── Refresh ALL stock prices in portfolio ──
+let aoRefreshing = false;
+async function aoRefreshAllPrices() {
+  if (aoRefreshing) return;
+  aoRefreshing = true;
+  const btn = document.getElementById('aoRefreshBtn');
+  if (btn) { btn.textContent = '⟳ Refreshing…'; btn.disabled = true; }
+
+  try {
+    await aoLogin(); // ensure logged in once
+    let updated = 0, failed = 0;
+    const stocks = DATA.stocks.filter(s => !['NYSE','NASDAQ'].includes(s.market));
+
+    for (const stock of stocks) {
+      try {
+        const ticker = (stock.ticker || '').toUpperCase();
+        const q = await aoGetPriceByTicker(ticker);
+        stock.current_price = q.price;
+        stock.current_value = (stock.qty||0) * q.price;
+        stock.pnl           = stock.current_value - (stock.invested||0);
+        stock.pnl_pct       = stock.invested ? +((stock.pnl/stock.invested)*100).toFixed(2) : 0;
+        stock.day_change    = q.change;
+        stock.day_change_pct= q.changePct;
+        stock.last_updated  = new Date().toISOString();
+        updated++;
+      } catch(e) { failed++; console.warn(`Price fetch failed for ${stock.ticker}:`, e.message); }
+    }
+
+    saveData(); renderAll();
+    const msg = `✓ ${updated} prices updated${failed ? `, ${failed} failed` : ''}`;
+    toast(msg);
+    setSyncStatus('ok');
+  } catch(e) {
+    toast('Angel One refresh failed: ' + e.message, 'err');
+    setSyncStatus('err');
+    console.error('AO refresh error:', e);
+  }
+  aoRefreshing = false;
+  if (btn) { btn.textContent = '⟳ Live Prices'; btn.disabled = false; }
+}
+
+// ── Override stkFetchQuoteData to use Angel One ──
+async function stkFetchQuoteData(symbolRaw) {
+  const ticker = symbolRaw.split('.')[0].toUpperCase();
+
+  // ── Try Angel One first (prompts MPIN if not yet logged in) ──
+  try {
+    // This will trigger MPIN modal if AO.token is null
+    if (!AO.token || Date.now() >= AO.tokenExpiry) {
+      await aoLogin();
+    }
+    const q = await aoGetPriceByTicker(ticker);
+    return { price: q.price, change: q.change, changePct: q.changePct, currency: 'INR' };
+  } catch(e) {
+    console.warn(`Angel One price failed for ${ticker}:`, e.message);
+  }
+
+  // ── Fallback: Stooq (no auth, works from file://) ──
+  try {
+    const sym = ticker.toLowerCase();
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 6000);
+    const r = await fetch(`https://stooq.com/q/l/?s=${sym}.in&f=sd2t2ohlcv&h&e=json`, {signal: ctrl.signal});
+    clearTimeout(tid);
+    if (r.ok) {
+      const d = await r.json();
+      const row = d?.symbols?.[0];
+      if (row?.close) {
+        const price = parseFloat(row.close);
+        const open  = parseFloat(row.open) || price;
+        return { price, change: +(price-open).toFixed(2), changePct: open ? +((price-open)/open*100).toFixed(2) : 0, currency: 'INR' };
+      }
+    }
+  } catch(e2) {
+    console.warn(`Stooq fallback failed for ${ticker}:`, e2.message);
+  }
+
+  throw new Error('All price sources failed');
+}
+
+// ── Auto-login on page load & show connection status ──
+async function aoInit() {
+  setSyncStatus('loading');
+  const dot  = document.getElementById('aoStatusDot');
+  const text = document.getElementById('aoStatusText');
+  if (text) text.textContent = 'Connecting to Angel One…';
+  try {
+    await aoLogin();
+    setSyncStatus('ok');
+    if (dot)  { dot.style.background = 'var(--green)'; dot.style.boxShadow = '0 0 6px rgba(52,211,153,.5)'; }
+    if (text) text.textContent = 'Connected — live prices active';
+    toast('Angel One connected ✓');
+  } catch(e) {
+    setSyncStatus('err');
+    if (dot)  { dot.style.background = 'var(--red)'; dot.style.boxShadow = 'none'; }
+    if (text) text.textContent = 'Connection failed: ' + e.message;
+    AO.mpin = null; // Clear so user can retry with correct MPIN
+    console.warn('Angel One init failed:', e.message);
+  }
+}
+
+
+// ── STOCK SEARCH — uses open APIs that work from file:// ──
+let stkSearchResults = [];
+
+// ── Built-in NSE stock list for instant offline search ──
+// Covers all major NSE-listed stocks & ETFs (symbol → name)
+const NSE_STOCKS = [
+  ['RELIANCE','Reliance Industries Ltd'],['TCS','Tata Consultancy Services'],
+  ['HDFCBANK','HDFC Bank Ltd'],['INFY','Infosys Ltd'],['ICICIBANK','ICICI Bank Ltd'],
+  ['HINDUNILVR','Hindustan Unilever Ltd'],['ITC','ITC Ltd'],['SBIN','State Bank of India'],
+  ['BHARTIARTL','Bharti Airtel Ltd'],['KOTAKBANK','Kotak Mahindra Bank'],
+  ['LT','Larsen & Toubro Ltd'],['AXISBANK','Axis Bank Ltd'],['ASIANPAINT','Asian Paints Ltd'],
+  ['MARUTI','Maruti Suzuki India'],['TITAN','Titan Company Ltd'],
+  ['SUNPHARMA','Sun Pharmaceutical'],['WIPRO','Wipro Ltd'],['ULTRACEMCO','UltraTech Cement'],
+  ['BAJFINANCE','Bajaj Finance Ltd'],['NESTLEIND','Nestle India Ltd'],
+  ['HAL','Hindustan Aeronautics Ltd'],['MAZDOCK','Mazagon Dock Shipbuilders'],
+  ['BEL','Bharat Electronics Ltd'],['IRFC','Indian Railway Finance Corp'],
+  ['RVNL','Rail Vikas Nigam Ltd'],['COALINDIA','Coal India Ltd'],
+  ['POWERGRID','Power Grid Corp'],['NTPC','NTPC Ltd'],['ONGC','Oil & Natural Gas Corp'],
+  ['IOC','Indian Oil Corp'],['BPCL','Bharat Petroleum Corp'],['HPCL','Hindustan Petroleum'],
+  ['TATASTEEL','Tata Steel Ltd'],['HINDALCO','Hindalco Industries'],
+  ['JSWSTEEL','JSW Steel Ltd'],['VEDL','Vedanta Ltd'],['NMDC','NMDC Ltd'],
+  ['GRASIM','Grasim Industries'],['SHREECEM','Shree Cement'],['AMBUJACEM','Ambuja Cements'],
+  ['DRREDDY','Dr Reddys Laboratories'],['CIPLA','Cipla Ltd'],['DIVISLAB','Divis Laboratories'],
+  ['APOLLOHOSP','Apollo Hospitals'],['MAXHEALTH','Max Healthcare'],['FORTIS','Fortis Healthcare'],
+  ['DMART','Avenue Supermarts (DMart)'],['TRENT','Trent Ltd'],['ABFRL','Aditya Birla Fashion'],
+  ['ZOMATO','Zomato Ltd'],['ETERNAL','Eternal Ltd (Zomato)'],['PAYTM','One97 Communications (Paytm)'],
+  ['NYKAA','FSN E-Commerce (Nykaa)'],['POLICYBZR','PB Fintech (PolicyBazaar)'],
+  ['BAJAJFINSV','Bajaj Finserv Ltd'],['HDFCLIFE','HDFC Life Insurance'],
+  ['SBILIFE','SBI Life Insurance'],['ICICIGI','ICICI Lombard GIC'],
+  ['ICICIPRULI','ICICI Prudential Life'],['LICI','Life Insurance Corp of India'],
+  ['MUTHOOTFIN','Muthoot Finance'],['CHOLAFIN','Cholamandalam Finance'],
+  ['BAJAJHFL','Bajaj Housing Finance'],['HOMEFIRST','Home First Finance'],
+  ['CANFINHOME','Can Fin Homes'],['PNBHOUSING','PNB Housing Finance'],
+  ['HDFCAMC','HDFC AMC'],['ICICIAMC','ICICI Prudential AMC'],['CAMS','CAMS'],
+  ['CDSL','Central Depository Services'],['BSE','BSE Ltd'],['MCX','MCX Ltd'],
+  ['DIXON','Dixon Technologies'],['AMBER','Amber Enterprises'],['VOLTAS','Voltas Ltd'],
+  ['HAVELLS','Havells India'],['POLYCAB','Polycab India'],['KEI','KEI Industries'],
+  ['APLAPOLLO','APL Apollo Tubes'],['JSWINFRA','JSW Infrastructure'],
+  ['ADANIPORTS','Adani Ports & SEZ'],['ADANIENT','Adani Enterprises'],
+  ['ADANIGREEN','Adani Green Energy'],['ADANIPOWER','Adani Power'],
+  ['TATAPOWER','Tata Power'],['TORNTPOWER','Torrent Power'],['CESC','CESC Ltd'],
+  ['TATACOMM','Tata Communications'],['HCLTECH','HCL Technologies'],
+  ['TECHM','Tech Mahindra'],['MPHASIS','Mphasis Ltd'],['PERSISTENT','Persistent Systems'],
+  ['COFORGE','Coforge Ltd'],['LTIM','LTIMindtree'],['KPITTECH','KPIT Technologies'],
+  ['TATAELXSI','Tata Elxsi'],['KAYNES','Kaynes Technology'],['NETWEB','Netweb Technologies'],
+  ['ZYDUSLIFE','Zydus Lifesciences'],['TORNTPHARM','Torrent Pharmaceuticals'],
+  ['ALKEM','Alkem Laboratories'],['IPCALAB','Ipca Laboratories'],
+  ['MANKIND','Mankind Pharma'],['GRANULES','Granules India'],['LALPATHLAB','Dr Lal PathLabs'],
+  ['METROPOLIS','Metropolis Healthcare'],['EICHERMOT','Eicher Motors'],
+  ['BAJAJ-AUTO','Bajaj Auto Ltd'],['HEROMOTOCO','Hero MotoCorp'],['TATAMOTORS','Tata Motors'],
+  ['M&M','Mahindra & Mahindra'],['ASHOKLEY','Ashok Leyland'],['ESCORTS','Escorts Kubota'],
+  ['TIINDIA','Tube Investments of India'],['MOTHERSON','Samvardhana Motherson'],
+  ['BOSCHLTD','Bosch Ltd'],['BHARATFORG','Bharat Forge'],['CEATLTD','CEAT Ltd'],
+  ['MRF','MRF Ltd'],['APOLLOTYRE','Apollo Tyres'],['BALKRISIND','Balkrishna Industries'],
+  ['INDIGO','IndiGo (InterGlobe Aviation)'],['SPICEJET','SpiceJet Ltd'],
+  ['CONCOR','Container Corp of India'],['IRCTC','IRCTC Ltd'],['RAILTEL','Railtel Corp'],
+  ['VBL','Varun Beverages'],['BRITANNIA','Britannia Industries'],['DABUR','Dabur India'],
+  ['MARICO','Marico Ltd'],['COLPAL','Colgate-Palmolive India'],['GODREJCP','Godrej Consumer'],
+  ['TATACONSUM','Tata Consumer Products'],['EMAMILTD','Emami Ltd'],
+  ['PAGEIND','Page Industries'],['KPRMILL','KPR Mill'],['TNPL','Tamil Nadu Newsprint'],
+  ['DELHIVERY','Delhivery Ltd'],['RATEGAIN','RateGain Travel Tech'],
+  ['NAUKRI','Info Edge (Naukri)'],['JUSTDIAL','Just Dial Ltd'],
+  ['INDHOTEL','Indian Hotels (Taj)'],['EIHOTEL','EIH Ltd (Oberoi)'],['OBEROIRLTY','Oberoi Realty'],
+  ['DLF','DLF Ltd'],['GODREJPROP','Godrej Properties'],['PRESTIGE','Prestige Estates'],
+  ['MOREALTY','Macrotech Developers (Lodha)'],['ANANTRAJ','Anant Raj Ltd'],
+  ['IREDA','Indian Renewable Energy Dev Agency'],['WAAREEENER','Waaree Energies'],
+  ['SUZLON','Suzlon Energy'],['INOXWIND','Inox Wind'],['BHEL','Bharat Heavy Electricals'],
+  ['SIEMENS','Siemens India'],['ABB','ABB India'],['CUMMINSIND','Cummins India'],
+  ['THERMAX','Thermax Ltd'],['BHARAT-ELEC','Bharat Electronics'],
+  ['SONACOMS','Sona BLW Precision'],['SOLARINDS','Solar Industries India'],
+  ['PIIND','PI Industries'],['DHANUKA','Dhanuka Agritech'],['RALLIS','Rallis India'],
+  ['SRF','SRF Ltd'],['AARTIIND','Aarti Industries'],['NAVINFLUOR','Navin Fluorine'],
+  ['FINEORG','Fine Organic Industries'],['TATACHEM','Tata Chemicals'],
+  ['JIOFIN','Jio Financial Services'],['PNBGILTS','PNB Gilts'],
+  ['PSUBNKBEES','Nippon PSU Bank ETF'],['ITBEES','Nippon India ETF IT'],
+  ['PVTBANIETF','ICICI Pru Pvt Banks ETF'],['PHARMABEES','Nippon Pharma ETF'],
+  ['METALIETF','Nippon Metal ETF'],['FMCGIETF','Nippon FMCG ETF'],
+  ['NIFTYBEES','Nippon Nifty BeES ETF'],['JUNIORBEES','Nippon Junior BeES ETF'],
+  ['SILVERBEES','ICICI Pru Silver ETF'],['GOLDCASE','ICICI Pru Gold ETF'],
+  ['SGBJUN31I-GB','Sovereign Gold Bond Jun 2031'],
+  ['AFFLE','Affle India'],['LATENTVIEW','LatentView Analytics'],['DATAPATTNS','Data Patterns India'],
+  ['AEROFLEX','Aeroflex Industries'],['AVALON','Avalon Technologies'],
+  ['GROWW','Groww (Nextbillion Tech)'],['AUTOBEES','Nippon Auto ETF'],
+  ['APARINDS','Apar Industries'],['ASMTEC','ASM Technologies'],['ASTRAL','Astral Ltd'],
+  ['AUBANK','AU Small Finance Bank'],['AZAD','Azad Engineering'],
+  ['AWHCL','Antony Waste Handling'],['ARE&M','Amara Raja Energy & Mobility'],
+  ['BORORENEW','Borosil Renewables'],['CHEMICAL','Anupam Rasayan India'],
+  ['CPPLUS','Aditya Infotech (CP Plus)'],['CRAFTSMAN','Craftsman Automation'],
+  ['E2E-BE','E2E Networks'],['EPACK','EPACK Durable'],['GATEWAY','Gateway Distriparks'],
+  ['GMDCLTD','GMDC Ltd'],['GRSE','Garden Reach Shipbuilders'],
+  ['HAPPYFORGE','Happy Forgings'],['HFCL','HFCL Ltd'],['HINDCOPPER','Hindustan Copper'],
+  ['HNDFDS','Hindustan Foods'],['INDGN','Indegene Ltd'],['INOXINDIA','INOX India'],
+  ['IONEXCHANG','Ion Exchange India'],['JKCEMENT','JK Cement'],['JUBLFOOD','Jubilant FoodWorks'],
+  ['KRN','KRN Heat Exchanger'],['LENSKART','Lenskart (Unlisted)'],['LGEINDIA','LG Electronics India'],
+  ['METROBRAND','Metro Brands'],['MODEFENCE','Mtar Technologies'],
+  ['MTARTECH','Mtar Technologies'],['NAVINFLUOR','Navin Fluorine'],
+  ['NETWEB','Netweb Technologies'],['NIVABUPA','Niva Bupa Health Insurance'],
+  ['NUVAMA','Nuvama Wealth Management'],['OLECTRA','Olectra Greentech'],
+  ['PNCINFRA','PNC Infratech'],['PRAJIND','Praj Industries'],
+  ['PREMIERENE','Premier Energies'],['RADICO','Radico Khaitan'],
+  ['SDBL','Som Distilleries & Breweries'],['SELECTIPO','Select IPO Fund'],
+  ['SHREEREF','Shree Renuka Sugars'],['STARCEMENT','Star Cement'],
+  ['STYLAMIND','Stylam Industries'],['TATATECH','Tata Technologies'],
+  ['TBOTEK','TBO Tek Ltd'],['TEGA','Tega Industries'],['TITAGARH','Titagarh Rail Systems'],
+  ['UNIECOM','Uniparts India'],['UNOMINDA','Uno Minda'],['VIJAYA','Vijaya Diagnostic'],
+  ['VIKRAN','Vikram Solar'],['ANTHEM','Anthem Biosciences'],
+  ['INDIGRID','IndiGrid InvIT'],['POWERMECH','Power Mech Projects'],
+  ['SWIGGY','Swiggy (Bundl Technologies)'],['BAJAJHFL','Bajaj Housing Finance'],
+  ['WAAREEENER','Waaree Energies'],['MOIL','MOIL Ltd'],['NALCO','NALCO Ltd'],
+  ['SAIL','Steel Authority of India'],['RECLTD','REC Ltd'],['PFC','Power Finance Corp'],
+  ['SJVN','SJVN Ltd'],['NHPC','NHPC Ltd'],['PGEL','PG Electroplast'],
+  ['Dixon','Dixon Technologies'],['SGBJUN31I-GB','Sovereign Gold Bond']
+];
+
+function stkLocalSearch(q) {
+  const q2 = q.toLowerCase().replace(/[^a-z0-9]/g,'');
+  return NSE_STOCKS.filter(([sym, name]) => {
+    const s = sym.toLowerCase().replace(/[^a-z0-9]/g,'');
+    const n = name.toLowerCase().replace(/[^a-z0-9 ]/g,'');
+    return s.startsWith(q2) || s.includes(q2) || n.includes(q2);
+  }).slice(0, 12);
+}
+
+async function stkDoSearch(q) {
+  const dropdown = document.getElementById('stkDropdown');
+  const status   = document.getElementById('stkSearchStatus');
+  dropdown.style.display = 'none';
+
+  const local = stkLocalSearch(q);
+  if (!local.length) {
+    status.textContent = 'No matches — try exact NSE ticker (e.g. RELIANCE, TCS)';
+    return;
+  }
+
+  status.textContent = '';
+  stkSearchResults = local.map(([sym, name]) => ({ symbol: sym, name }));
+
+  dropdown.innerHTML = local.map(([sym, name], idx) => {
+    const abbr = sym.slice(0, 4);
+    return `<div data-stkidx="${idx}" style="padding:.65rem 1rem;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.03);display:flex;align-items:center;gap:.75rem;transition:background .12s">
+      <div style="width:36px;height:36px;border-radius:8px;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;color:var(--gold);flex-shrink:0">${abbr}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:.83rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+        <div style="font-size:.7rem;color:var(--text3);margin-top:2px">${sym} · NSE · Equity</div>
+      </div>
+      <div style="font-size:.72rem;color:var(--gold);flex-shrink:0;padding:.2rem .5rem;border:1px solid rgba(212,168,83,.3);border-radius:6px">Select</div>
+    </div>`;
+  }).join('');
+
+  dropdown.onclick = function(e) {
+    const row = e.target.closest('[data-stkidx]');
+    if (!row) return;
+    const idx = parseInt(row.getAttribute('data-stkidx'));
+    const item = stkSearchResults[idx];
+    if (item) { dropdown.style.display = 'none'; stkSelectFromResult(item); }
+  };
+  dropdown.onmouseover = function(e) {
+    const row = e.target.closest('[data-stkidx]');
+    if (row) row.style.background = 'rgba(212,168,83,.08)';
+  };
+  dropdown.onmouseout = function(e) {
+    const row = e.target.closest('[data-stkidx]');
+    if (row) row.style.background = '';
+  };
+  dropdown.style.display = 'block';
+}
+
+async function stkSelectFromResult(item) {
+  const status = document.getElementById('stkSearchStatus');
+  const symbol = item.symbol || '';
+  const name   = item.name || item.longname || item.shortname || symbol;
+  status.innerHTML = `<div style="text-align:center;padding:.6rem;color:var(--text3);font-size:.78rem">⏳ Fetching live price for <strong style="color:var(--gold)">${symbol}</strong>…</div>`;
+  try {
+    const data = await stkFetchQuoteData(symbol);
+    stkSelected = { ticker: symbol, company: name, symbol: symbol + '.NS', exchange: 'NSE',
+      price: data.price, change: data.change, changePct: data.changePct, sector: '', currency: 'INR' };
+    status.innerHTML = '';
+    stkShowStep2(stkSelected);
+  } catch(e) {
+    status.innerHTML = '';
+    stkSelected = { ticker: symbol, company: name, symbol: symbol + '.NS', exchange: 'NSE', price: 0, sector: '', currency: 'INR' };
+    stkShowStep2(stkSelected);
+    toast('Live price unavailable — enter manually', 'err');
+  }
+}
+
+
+function stkShowStep2(stock) {
+  document.getElementById('stkStep1').style.display = 'none';
+  document.getElementById('stkStep2').style.display = '';
+  document.getElementById('stkSaveBtn').style.display = '';
+
+  // Badge
+  document.getElementById('stkBadgeIcon').textContent = stock.ticker.slice(0, 4);
+  document.getElementById('stkBadgeName').textContent = stock.company;
+  document.getElementById('stkBadgeMeta').textContent = `${stock.symbol} · ${stock.exchange}`;
+
+  const price    = stock.price || 0;
+  const change   = stock.change || 0;
+  const pct      = stock.changePct || 0;
+  const isUp     = change >= 0;
+  document.getElementById('stkBadgePrice').textContent = price ? `₹${price.toLocaleString('en-IN', {minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
+  document.getElementById('stkBadgeChg').innerHTML = price
+    ? `<span style="color:${isUp?'var(--green)':'var(--red)'}">${isUp?'+':''}${change.toFixed(2)} (${isUp?'+':''}${pct.toFixed(2)}%)</span>`
+    : '<span style="color:var(--text3)">Price unavailable</span>';
+
+  // Auto-fill fields
+  document.getElementById('stkTicker').value       = stock.ticker;
+  document.getElementById('stkCompany').value      = stock.company;
+  document.getElementById('stkSymbolFull').value   = stock.symbol;
+  if (price) document.getElementById('stkCurrentPrice').value = price;
+  if (stock.sector) document.getElementById('stkSector').value = stock.sector;
+
+  // Set market dropdown
+  const mktEl = document.getElementById('stkMarket');
+  const sym = stock.symbol || '';
+  const mkt = sym.endsWith('.NS') ? 'NSE' : sym.endsWith('.BO') ? 'BSE' : stock.exchange?.includes('NSE') ? 'NSE' : stock.exchange?.includes('BSE') ? 'BSE' : 'NSE';
+  [...mktEl.options].forEach(o => { o.selected = o.value === mkt; });
+
+  setTimeout(() => document.getElementById('stkQty').focus(), 60);
+  stkRecalc();
+}
+
+async function stkRefreshPrice() {
+  if (!stkSelected?.symbol) return;
+  const btn = document.getElementById('stkRefreshBtn');
+  btn.textContent = '…';
+  try {
+    const data = await stkFetchQuoteData(stkSelected.symbol);
+    stkSelected.price     = data.price;
+    stkSelected.change    = data.change;
+    stkSelected.changePct = data.changePct;
+    document.getElementById('stkCurrentPrice').value = data.price;
+    // Update badge
+    const isUp = data.change >= 0;
+    document.getElementById('stkBadgePrice').textContent = `₹${data.price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    document.getElementById('stkBadgeChg').innerHTML = `<span style="color:${isUp?'var(--green)':'var(--red)'}">${isUp?'+':''}${data.change.toFixed(2)} (${isUp?'+':''}${data.changePct.toFixed(2)}%)</span>`;
+    stkRecalc();
+    toast('Price refreshed ✓');
+  } catch(e) { toast('Could not fetch live price','err'); }
+  btn.textContent = '⟳ Live';
+}
+
+function stkRecalc() {
+  const qty   = parseFloat(document.getElementById('stkQty').value) || 0;
+  const avg   = parseFloat(document.getElementById('stkAvgPrice').value) || 0;
+  const cur   = parseFloat(document.getElementById('stkCurrentPrice').value) || 0;
+  const inv   = qty * avg;
+  const curV  = qty * cur;
+  const pnl   = curV - inv;
+  const preview = document.getElementById('stkPnlPreview');
+  if (qty && avg && cur) {
+    preview.style.display = '';
+    document.getElementById('stkPreviewInv').textContent = '₹' + inv.toLocaleString('en-IN', {maximumFractionDigits:0});
+    document.getElementById('stkPreviewCur').textContent = '₹' + curV.toLocaleString('en-IN', {maximumFractionDigits:0});
+    const pnlEl = document.getElementById('stkPreviewPnl');
+    pnlEl.textContent = (pnl >= 0 ? '+' : '') + '₹' + Math.abs(pnl).toLocaleString('en-IN', {maximumFractionDigits:0});
+    pnlEl.style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+  } else {
+    preview.style.display = 'none';
+  }
+}
+
+function saveStockFromModal() {
+  if (!stkSelected) { toast('Select a stock first', 'err'); return; }
+  const qty   = parseFloat(document.getElementById('stkQty').value);
+  const avg   = parseFloat(document.getElementById('stkAvgPrice').value);
+  const cur   = parseFloat(document.getElementById('stkCurrentPrice').value);
+  if (!qty || !avg || !cur) { toast('Fill Quantity, Avg Price and Current Price', 'err'); return; }
+
+  const inv  = qty * avg;
+  const curV = qty * cur;
+  const pnl  = curV - inv;
+
+  const item = {
+    ticker:        document.getElementById('stkTicker').value || stkSelected.ticker,
+    company:       document.getElementById('stkCompany').value || stkSelected.company,
+    description:   document.getElementById('stkCompany').value || stkSelected.company,
+    market:        document.getElementById('stkMarket').value,
+    sector:        document.getElementById('stkSector').value,
+    qty,
+    avg_price:     avg,
+    current_price: cur,
+    invested:      inv,
+    current_value: curV,
+    pnl,
+    pnl_pct:       inv ? +((pnl / inv) * 100).toFixed(2) : 0,
+    currency:      stkSelected.currency || 'INR',
+    symbol_full:   stkSelected.symbol || ''
+  };
+
+  if (stkEditingId) {
+    const idx = DATA.stocks.findIndex(x => x.id === stkEditingId);
+    if (idx >= 0) { item.id = stkEditingId; DATA.stocks[idx] = { ...DATA.stocks[idx], ...item }; }
+  } else {
+    item.id = uid();
+    item.created_at = new Date().toISOString();
+    DATA.stocks.push(item);
+  }
+
+  saveData(); renderAll();
+  syncItemToSheet('stocks', item, stkEditingId ? 'update' : 'add');
+  toast((stkEditingId ? 'Updated' : 'Added') + ' ' + item.ticker + ' ✓');
+  closeStockModal();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('#stockModalOverlay')) return;
+  const dd = document.getElementById('stkDropdown');
+  if (dd && !e.target.closest('#stkDropdown') && !e.target.closest('#stkSearchInput')) {
+    dd.style.display = 'none';
+  }
+});
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+document.getElementById('liveDate').textContent = new Date().toLocaleDateString('en-IN',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+
+loadData();
+loadConfig();
+renderAll();
+
+// Auto-sync from Google Sheet on load
+if(CONFIG.sheetURL){
+  setTimeout(()=>syncFromSheet(), 2000);
+}
+
+// Angel One — auto-login on startup
+setTimeout(()=>aoInit(), 800);
+</script>
+</body>
+</html>
