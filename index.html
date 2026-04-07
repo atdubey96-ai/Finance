@@ -480,6 +480,7 @@ body.auth-ready .auth-screen{display:none}
           <span id="supabaseStatus"></span>
         </div>
         <div style="font-size:.72rem;color:var(--text3);margin-top:.55rem" id="supabaseUserStatus">Not signed in</div>
+        <div style="font-size:.68rem;color:var(--text3);margin-top:.35rem" id="supabaseDebugStatus"></div>
       </div>
       <div class="setting-card" style="border-color:rgba(52,211,153,.2)">
         <h4>📈 Angel One SmartAPI</h4>
@@ -1694,7 +1695,7 @@ async function syncFromSupabase(options={}){
       await syncToSupabase({ quiet:true });
       if(!options.quiet) toast('Created your first Supabase snapshot ✓');
     } else if(!options.quiet){
-      toast('No cloud snapshot exists yet for this account.','info');
+      toast(`No cloud snapshot exists yet for ${AUTH_STATE.user.email || 'this account'}. Push data once from the device that already has your dashboard.`, 'info');
     }
     if(!row && !hasLocalDashboardData()){
       renderAll();
@@ -2996,10 +2997,18 @@ function loadSettingsUI(){
   const mpinEl = document.getElementById('cfgMPIN');
   if (mpinEl) mpinEl.value = CONFIG.mpin ? '••••' : '';
   const userStatus = document.getElementById('supabaseUserStatus');
+  const debugStatus = document.getElementById('supabaseDebugStatus');
   if(userStatus){
     userStatus.textContent = AUTH_STATE.user?.email
       ? `Signed in as ${AUTH_STATE.user.email}`
       : (isSupabaseConfigured() ? 'Project configured. Sign in on the lock screen.' : 'Project not configured yet.');
+  }
+  if(debugStatus){
+    const bits = [];
+    if(AUTH_STATE.user?.id) bits.push(`User ID: ${AUTH_STATE.user.id}`);
+    if(SYNC_META.lastRemoteUpdatedAt) bits.push(`Cloud updated: ${new Date(SYNC_META.lastRemoteUpdatedAt).toLocaleString()}`);
+    if(SYNC_META.lastSyncedAt) bits.push(`Last sync: ${new Date(SYNC_META.lastSyncedAt).toLocaleString()}`);
+    debugStatus.textContent = bits.join(' | ');
   }
   if(isSupabaseConfigured()) setSyncStatus(AUTH_STATE.user ? 'ok' : 'loading');
   renderScanHistory();
