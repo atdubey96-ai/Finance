@@ -228,15 +228,66 @@ tr.clickable:hover td{color:var(--text);background:rgba(212,168,83,.03)}
 
 .empty-state{text-align:center;padding:3rem 1rem;color:var(--text3)}
 .empty-state h4{color:var(--text2);margin-bottom:.5rem;font-family:'Playfair Display',serif}
+
+/* ====== LOGIN GATE ====== */
+body.auth-locked{overflow:hidden}
+.auth-screen{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:1.5rem;background:
+  radial-gradient(circle at 18% 12%,rgba(212,168,83,.16),transparent 28%),
+  radial-gradient(circle at 86% 82%,rgba(96,165,250,.13),transparent 32%),
+  linear-gradient(135deg,#08090d 0%,#11131d 52%,#07080c 100%)}
+.auth-screen::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(212,168,83,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,83,.04) 1px,transparent 1px);background-size:42px 42px;mask-image:radial-gradient(circle at center,black,transparent 74%);pointer-events:none}
+.auth-card{position:relative;width:min(440px,100%);padding:2rem;border:1px solid rgba(212,168,83,.22);border-radius:24px;background:rgba(12,13,20,.84);box-shadow:0 28px 90px rgba(0,0,0,.62);backdrop-filter:blur(22px);overflow:hidden}
+.auth-card::before{content:'';position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.auth-brand{display:flex;align-items:center;gap:.85rem;margin-bottom:1.5rem}
+.auth-logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--gold),var(--gold3));display:flex;align-items:center;justify-content:center;color:var(--bg);font-weight:800;font-size:1.1rem;box-shadow:0 14px 34px rgba(212,168,83,.22)}
+.auth-kicker{font-size:.67rem;text-transform:uppercase;letter-spacing:1.6px;color:var(--gold);margin-bottom:.25rem;font-weight:700}
+.auth-title{font-family:'Playfair Display',serif;font-size:1.8rem;line-height:1.05;margin-bottom:.55rem}
+.auth-copy{font-size:.84rem;color:var(--text2);line-height:1.55;margin-bottom:1.35rem}
+.auth-form{display:flex;flex-direction:column;gap:.75rem}
+.auth-input{width:100%;padding:.85rem 1rem;border-radius:12px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:.98rem;letter-spacing:.08rem}
+.auth-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,168,83,.12)}
+.auth-btn{width:100%;justify-content:center;padding:.85rem 1rem;border-radius:12px;font-size:.86rem}
+.auth-meta{display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-top:.95rem;color:var(--text3);font-size:.72rem;flex-wrap:wrap}
+.auth-link{border:none;background:none;color:var(--gold);font-family:inherit;font-size:.72rem;font-weight:700;cursor:pointer;padding:0}
+.auth-error{min-height:1rem;color:var(--red);font-size:.76rem;margin-top:.2rem}
+.app-shell{display:none}
+body.auth-ready .app-shell{display:block}
+body.auth-ready .auth-screen{display:none}
 </style>
 </head>
-<body>
+<body class="auth-locked">
+
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-logo">A</div>
+      <div>
+        <div class="auth-kicker">Private Finance Desk</div>
+        <div style="color:var(--text2);font-size:.78rem">Wealth Command Center</div>
+      </div>
+    </div>
+    <h1 class="auth-title" id="authTitle">Create your dashboard passcode</h1>
+    <p class="auth-copy" id="authCopy">Set a local passcode for this browser. This is a privacy gate for the static dashboard, not server-side account security.</p>
+    <form class="auth-form" id="authForm">
+      <input class="auth-input" id="authPasscode" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Enter passcode" minlength="4">
+      <button class="btn btn-gold auth-btn" id="authSubmit" type="submit">Create Passcode</button>
+      <div class="auth-error" id="authError"></div>
+    </form>
+    <div class="auth-meta">
+      <span id="authHint">Stored only in this browser.</span>
+      <button class="auth-link" id="authResetBtn" type="button" style="display:none">Reset local passcode</button>
+    </div>
+  </div>
+</div>
+
+<div class="app-shell" id="appShell">
 
 <div class="hdr"><div class="hdr-in">
   <div class="logo"><div class="logo-i">A</div><div class="logo-t">Wealth Command Center</div></div>
   <div class="hdr-r">
     <div class="sync-dot" id="syncDot" title="Sync status"></div>
     <span class="dt" id="liveDate"></span>
+    <button class="btn btn-outline btn-sm" onclick="lockDashboard()">Lock</button>
     <div class="avatar" onclick="switchTab('settings')">⚙</div>
   </div>
 </div></div>
@@ -587,6 +638,8 @@ tr.clickable:hover td{color:var(--text);background:rgba(212,168,83,.03)}
 <!-- ============ TOASTS ============ -->
 <div class="toast-container" id="toasts"></div>
 
+</div>
+
 <script>
 // ═══════════════════════════════════════════
 //  DATA STORE — localStorage + Google Sheets
@@ -594,6 +647,8 @@ tr.clickable:hover td{color:var(--text);background:rgba(212,168,83,.03)}
 const DB_KEY = 'wcc_data';
 const CFG_KEY = 'wcc_config';
 const SCAN_KEY = 'wcc_scans';
+const AUTH_HASH_KEY = 'wcc_auth_hash';
+const AUTH_SESSION_KEY = 'wcc_auth_unlocked';
 
 const DEFAULTS = {
   transactions:[],accounts:[],stocks:[],mutual_funds:[],income:[],salary_structure:[],fixed_deposits:[]
@@ -603,6 +658,94 @@ let DATA = {};
 let CONFIG = { sheetURL:'https://script.google.com/macros/s/AKfycbwsfiuE3G_31-o7sgcYO4-r4CW7d94rv1FAZMvDZfElE85ipGyCr14suOqfKzf31cK09Q/exec', apiKey:'', mpin:'9816' };
 let CHARTS = {};
 let currentModal = null;
+let dashboardStarted = false;
+
+async function hashPasscode(passcode){
+  const input = 'wealth-command-center:' + passcode;
+  if(window.crypto?.subtle){
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+    return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  let hash = 5381;
+  for(let i=0;i<input.length;i++) hash = ((hash << 5) + hash) ^ input.charCodeAt(i);
+  return 'fallback-' + (hash >>> 0).toString(16);
+}
+
+function setAuthError(msg=''){
+  const el = document.getElementById('authError');
+  if(el) el.textContent = msg;
+}
+
+function refreshAuthScreen(){
+  const hasPasscode = !!localStorage.getItem(AUTH_HASH_KEY);
+  document.getElementById('authTitle').textContent = hasPasscode ? 'Unlock your dashboard' : 'Create your dashboard passcode';
+  document.getElementById('authCopy').textContent = hasPasscode
+    ? 'Enter your local passcode to open the Wealth Command Center on this device.'
+    : 'Set a local passcode for this browser. This is a privacy gate for the static dashboard, not server-side account security.';
+  document.getElementById('authSubmit').textContent = hasPasscode ? 'Unlock Dashboard' : 'Create Passcode';
+  document.getElementById('authPasscode').autocomplete = hasPasscode ? 'current-password' : 'new-password';
+  document.getElementById('authHint').textContent = hasPasscode ? 'Session unlock stays until you press Lock or close the tab.' : 'Stored only in this browser.';
+  document.getElementById('authResetBtn').style.display = hasPasscode ? '' : 'none';
+}
+
+function showDashboard(){
+  sessionStorage.setItem(AUTH_SESSION_KEY, '1');
+  document.body.classList.remove('auth-locked');
+  document.body.classList.add('auth-ready');
+  setAuthError('');
+  if(!dashboardStarted) startDashboardApp();
+}
+
+function lockDashboard(){
+  sessionStorage.removeItem(AUTH_SESSION_KEY);
+  document.body.classList.add('auth-locked');
+  document.body.classList.remove('auth-ready');
+  refreshAuthScreen();
+  setTimeout(()=>document.getElementById('authPasscode')?.focus(), 80);
+}
+
+function resetDashboardPasscode(){
+  if(!confirm('Reset the local dashboard passcode for this browser? Your finance data will stay untouched.')) return;
+  localStorage.removeItem(AUTH_HASH_KEY);
+  sessionStorage.removeItem(AUTH_SESSION_KEY);
+  document.getElementById('authPasscode').value = '';
+  refreshAuthScreen();
+  setAuthError('Create a new passcode to continue.');
+}
+
+async function handleAuthSubmit(e){
+  e.preventDefault();
+  const input = document.getElementById('authPasscode');
+  const passcode = input.value.trim();
+  if(passcode.length < 4){ setAuthError('Use at least 4 characters.'); input.focus(); return; }
+
+  const storedHash = localStorage.getItem(AUTH_HASH_KEY);
+  const hash = await hashPasscode(passcode);
+  if(!storedHash){
+    localStorage.setItem(AUTH_HASH_KEY, hash);
+    input.value = '';
+    showDashboard();
+    return;
+  }
+  if(hash !== storedHash){
+    setAuthError('Incorrect passcode. Try again.');
+    input.select();
+    return;
+  }
+  input.value = '';
+  showDashboard();
+}
+
+function initAuthGate(){
+  refreshAuthScreen();
+  document.getElementById('authForm').addEventListener('submit', handleAuthSubmit);
+  document.getElementById('authResetBtn').addEventListener('click', resetDashboardPasscode);
+  if(localStorage.getItem(AUTH_HASH_KEY) && sessionStorage.getItem(AUTH_SESSION_KEY)==='1'){
+    showDashboard();
+  } else {
+    setTimeout(()=>document.getElementById('authPasscode')?.focus(), 80);
+  }
+}
 
 function loadData(){ DATA = JSON.parse(localStorage.getItem(DB_KEY)||'null') || JSON.parse(JSON.stringify(DEFAULTS)); }
 function saveData(){ localStorage.setItem(DB_KEY, JSON.stringify(DATA)); }
@@ -3168,28 +3311,33 @@ function aoReconnect(){
 // ═══════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════
-document.getElementById('liveDate').textContent = new Date().toLocaleDateString('en-IN',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+function startDashboardApp(){
+  dashboardStarted = true;
+  document.getElementById('liveDate').textContent = new Date().toLocaleDateString('en-IN',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
 
-// Clear stale config that might not have MPIN
-(function(){
-  const saved = JSON.parse(localStorage.getItem('wcc_config')||'null');
-  if (saved && !saved.mpin) {
-    saved.mpin = '9816';
-    localStorage.setItem('wcc_config', JSON.stringify(saved));
+  // Clear stale config that might not have MPIN
+  (function(){
+    const saved = JSON.parse(localStorage.getItem('wcc_config')||'null');
+    if (saved && !saved.mpin) {
+      saved.mpin = '9816';
+      localStorage.setItem('wcc_config', JSON.stringify(saved));
+    }
+  })();
+
+  loadData();
+  loadConfig();
+  renderAll();
+
+  // Auto-sync from Google Sheet on load
+  if(CONFIG.sheetURL){
+    setTimeout(()=>syncFromSheet(), 2000);
   }
-})();
 
-loadData();
-loadConfig();
-renderAll();
-
-// Auto-sync from Google Sheet on load
-if(CONFIG.sheetURL){
-  setTimeout(()=>syncFromSheet(), 2000);
+  // Angel One — auto-login on startup
+  setTimeout(()=>aoInit(), 800);
 }
 
-// Angel One — auto-login on startup
-setTimeout(()=>aoInit(), 800);
+initAuthGate();
 </script>
 </body>
 </html>
