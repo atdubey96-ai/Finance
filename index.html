@@ -185,14 +185,19 @@ tr.clickable:hover td{color:var(--text);background:rgba(212,168,83,.03)}
 .section-kpis{display:flex;gap:.9rem;flex-wrap:wrap;font-size:.74rem;color:var(--text3)}
 .section-kpis strong{color:var(--text)}
 .inline-broker-pill{display:inline-flex;align-items:center;padding:.14rem .48rem;border-radius:999px;background:rgba(167,139,250,.12);color:var(--purple);font-size:.65rem;font-weight:600}
-.salary-components-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem}
-.salary-component-card{padding:.9rem .95rem;border-radius:14px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.024);display:grid;gap:.6rem}
-.salary-component-card .salary-component-top{display:grid;gap:.5rem}
+.salary-components-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem}
+.salary-component-card{padding:.72rem .78rem;border-radius:14px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.024);display:grid;gap:.45rem}
+.salary-component-card .salary-component-top{display:grid;grid-template-columns:minmax(0,1fr) 94px 108px;align-items:center;border:1px solid var(--border);border-radius:12px;background:var(--bg4);overflow:hidden}
 .salary-component-card .salary-component-meta{display:flex;justify-content:space-between;align-items:center;gap:.55rem;flex-wrap:wrap}
-.salary-component-card .salary-component-note{font-size:.72rem;color:var(--text3)}
-.salary-component-card .salary-component-annual{font-size:.72rem;color:var(--text3)}
-.salary-component-card input,.salary-component-card select{width:100%;padding:.45rem .55rem;background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:.8rem}
+.salary-component-card .salary-component-note{font-size:.68rem;color:var(--text3)}
+.salary-component-card .salary-component-annual{font-size:.68rem;color:var(--text3)}
+.salary-component-card input,.salary-component-card select{width:100%;padding:.42rem .52rem;background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:.78rem}
+.salary-component-card .salary-component-top input,.salary-component-card .salary-component-top select{background:transparent;border:none;border-radius:0;padding:.52rem .62rem;font-size:.78rem;height:42px}
+.salary-component-card .salary-component-top > *{border-right:1px solid rgba(255,255,255,.06)}
+.salary-component-card .salary-component-top > *:last-child{border-right:none}
+.salary-component-card .salary-component-top input:focus,.salary-component-card .salary-component-top select:focus{outline:none;background:rgba(255,255,255,.02)}
 .salary-component-card input:focus,.salary-component-card select:focus{outline:none;border-color:var(--gold)}
+@media(max-width:1380px){.salary-component-card .salary-component-top{grid-template-columns:minmax(0,1fr) 88px 100px}}
 @media(max-width:1180px){.salary-components-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.salary-components-grid{grid-template-columns:1fr}}
 
