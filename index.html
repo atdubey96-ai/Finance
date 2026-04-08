@@ -1227,6 +1227,10 @@ let PDF_PASSWORD_PROMPT = { resolve:null };
 let salarySlipEdits = [];
 let salarySlipEditingId = null;
 let salarySlipDraft = { date:'', employer:'', pay_period:'', notes:'', source_kind:'Manual' };
+let salaryBoardEditingId = null;
+let salaryBoardEdits = [];
+let salaryBoardDraft = { date:'', employer:'', pay_period:'', notes:'', source_kind:'Manual' };
+let salaryBoardDirty = false;
 
 function cloneDefaults(){
   return JSON.parse(JSON.stringify(DEFAULTS));
@@ -2193,6 +2197,33 @@ function buildSalarySourceMap(){
     sources[key] = (sources[key] || 0) + Number(slip.net_amount || 0);
   });
   return sources;
+}
+
+function getSalarySlipDraftState(item={}){
+  return {
+    date: item?.date || new Date().toISOString().split('T')[0],
+    employer: item?.employer || item?.source || '',
+    pay_period: item?.pay_period || '',
+    notes: item?.notes || '',
+    source_kind: item?.source_kind || 'Manual'
+  };
+}
+
+function hydrateSalaryBoardEditor(item){
+  if(!item){
+    salaryBoardEditingId = null;
+    salaryBoardEdits = [];
+    salaryBoardDraft = { date:'', employer:'', pay_period:'', notes:'', source_kind:'Manual' };
+    salaryBoardDirty = false;
+    return;
+  }
+  salaryBoardEditingId = item.id || null;
+  salaryBoardEdits = getIncomeSalaryComponents(item || {});
+  if(!salaryBoardEdits.length){
+    salaryBoardEdits = [createSalaryScanEditRow({ component:'Salary Component', type:'income', monthly_amount:0, annual_amount:0 })];
+  }
+  salaryBoardDraft = getSalarySlipDraftState(item);
+  salaryBoardDirty = false;
 }
 
 // ═══════════════════════════════════════════
@@ -3398,6 +3429,7 @@ function renderIncome(){
   const totalNet = slips.reduce((sum, slip)=>sum + Number(slip.net_amount || 0), 0);
   const sourceMap = buildSalarySourceMap();
   const latestSlip = slips[0] || null;
+  const boardSlip = slips.find((slip)=>slip.id === salaryBoardEditingId) || latestSlip || null;
 
   document.getElementById('salaryCards').innerHTML = `
     ${buildMetricCard({
@@ -3430,47 +3462,14 @@ function renderIncome(){
     })}
   `;
 
-  const componentBoard = document.getElementById('salaryComponentBoard');
-  if(!latestSlip){
-    componentBoard.innerHTML = `
-      <div class="empty-state">
-        <h4>No salary slips yet</h4>
-        <p>Scan a payslip or add a salary slip manually to review every component as income or deduction.</p>
-      </div>
-    `;
+  if(boardSlip){
+    if(!salaryBoardDirty || salaryBoardEditingId !== boardSlip.id || !salaryBoardEdits.length){
+      hydrateSalaryBoardEditor(boardSlip);
+    }
   } else {
-    const components = [...(latestSlip.components || [])]
-      .sort((a,b)=>{
-        const typeA = normalizeSalaryComponentType(a.type);
-        const typeB = normalizeSalaryComponentType(b.type);
-        if(typeA !== typeB) return typeA === 'income' ? -1 : 1;
-        return (Number(b.monthly_amount || 0) - Number(a.monthly_amount || 0));
-      });
-    componentBoard.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;flex-wrap:wrap;margin-bottom:.8rem">
-        <div>
-          <div style="font-size:.92rem;font-weight:600;color:var(--text)">${escapeHtml(latestSlip.employer || 'Employer')}</div>
-          <div style="font-size:.74rem;color:var(--text3);margin-top:.18rem">${escapeHtml(latestSlip.pay_period || dateStr(latestSlip.date || ''))}</div>
-        </div>
-        <button class="btn btn-outline btn-sm" onclick="openSalarySlipEditor('${latestSlip.id}')">✎ Edit Latest Slip</button>
-      </div>
-      <div class="overview-list">
-        ${components.map((component)=>`
-          <div class="overview-list-row">
-            <div class="overview-list-main">
-              <div class="overview-list-title">${escapeHtml(component.component || 'Component')}</div>
-              <div class="overview-list-meta">${normalizeSalaryComponentType(component.type) === 'deduction' ? 'Deduction' : 'Income'} component</div>
-            </div>
-            <div class="overview-list-value">
-              <strong class="${normalizeSalaryComponentType(component.type) === 'deduction' ? 'neg' : 'pos'}">${normalizeSalaryComponentType(component.type) === 'deduction' ? '-' : ''}${fmt(component.monthly_amount)}</strong>
-              <span>${fmt(component.annual_amount || (Number(component.monthly_amount || 0) * 12))} annual</span>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-      <div class="overview-caption">Every component above stays editable and can be switched between income and deduction from the salary editor.</div>
-    `;
+    hydrateSalaryBoardEditor(null);
   }
+  renderSalaryComponentBoard(latestSlip);
 
   const srcLabels = Object.keys(sourceMap);
   const srcVals = Object.values(sourceMap);
@@ -3491,6 +3490,7 @@ function renderIncome(){
   }
   tbody.innerHTML = slips.map((slip)=>{
     const componentCount = Array.isArray(slip.components) ? slip.components.length : 0;
+    const editingHere = salaryBoardEditingId === slip.id;
     return `<tr>
       <td data-label="Date">${dateStr(slip.date)}</td>
       <td data-label="Employer" class="tk">${escapeHtml(slip.employer || 'Employer')}</td>
@@ -3502,12 +3502,208 @@ function renderIncome(){
       <td data-label="Source">${escapeHtml(slip.source_kind || 'Manual')}</td>
       <td data-label="Actions">
         <div style="display:flex;gap:.35rem;justify-content:flex-end;flex-wrap:wrap">
-          <button class="btn btn-outline btn-sm" onclick="openSalarySlipEditor('${slip.id}')">✎ Edit</button>
+          <button class="btn btn-outline btn-sm" onclick="focusSalaryBoardEditor('${slip.id}')" style="${editingHere ? 'border-color:var(--gold);color:var(--gold);background:var(--golddim)' : ''}">${editingHere ? 'Editing Here' : 'Edit Here'}</button>
           <button class="btn btn-red btn-sm" onclick="deleteItem('salary_slips','${slip.id}')">🗑</button>
         </div>
       </td>
     </tr>`;
   }).join('');
+}
+
+function renderSalaryComponentBoard(latestSlip=null){
+  const componentBoard = document.getElementById('salaryComponentBoard');
+  if(!componentBoard) return;
+  const activeSlip = DATA.salary_slips.find((slip)=>slip.id === salaryBoardEditingId) || latestSlip || null;
+  if(!activeSlip){
+    componentBoard.innerHTML = `
+      <div class="empty-state">
+        <h4>No salary slips yet</h4>
+        <p>Scan a payslip or add a salary slip manually to review every component as income or deduction.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const totals = getSalaryReviewTotals(salaryBoardEdits);
+  const isLatest = latestSlip && activeSlip.id === latestSlip.id;
+  componentBoard.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;flex-wrap:wrap;margin-bottom:.85rem">
+      <div>
+        <div style="font-size:.92rem;font-weight:600;color:var(--text)">${escapeHtml(salaryBoardDraft.employer || activeSlip.employer || 'Employer')}</div>
+        <div style="font-size:.74rem;color:var(--text3);margin-top:.18rem">${escapeHtml(salaryBoardDraft.pay_period || activeSlip.pay_period || dateStr(salaryBoardDraft.date || activeSlip.date || ''))}</div>
+        <div style="font-size:.72rem;color:${salaryBoardDirty ? 'var(--gold)' : 'var(--text3)'};margin-top:.22rem">${salaryBoardDirty ? 'Unsaved component changes' : (isLatest ? 'Editing latest saved slip inline' : 'Editing selected slip from the ledger')}</div>
+      </div>
+      <div style="display:flex;gap:.45rem;flex-wrap:wrap;justify-content:flex-end">
+        ${latestSlip && !isLatest ? `<button class="btn btn-outline btn-sm" onclick="focusSalaryBoardEditor('${latestSlip.id}')">Latest Slip</button>` : ''}
+        <button class="btn btn-outline btn-sm" onclick="resetSalaryBoardEditor()">Reset</button>
+        <button class="btn btn-outline btn-sm" onclick="addSalaryBoardComponent()">+ Add Component</button>
+        <button class="btn btn-gold btn-sm" onclick="saveSalaryBoardEditor()">Save Changes</button>
+      </div>
+    </div>
+
+    <div class="fg-row" style="margin-bottom:1rem">
+      <div class="fg">
+        <label>Slip Date</label>
+        <input type="date" value="${escapeHtml(salaryBoardDraft.date || '')}" onchange="updateSalaryBoardField('date',this.value)">
+      </div>
+      <div class="fg">
+        <label>Employer</label>
+        <input type="text" value="${escapeHtml(salaryBoardDraft.employer || '')}" placeholder="Employer name" onchange="updateSalaryBoardField('employer',this.value)">
+      </div>
+    </div>
+    <div class="fg-row" style="margin-bottom:1rem">
+      <div class="fg">
+        <label>Pay Period</label>
+        <input type="text" value="${escapeHtml(salaryBoardDraft.pay_period || '')}" placeholder="e.g. Dec 2024" onchange="updateSalaryBoardField('pay_period',this.value)">
+      </div>
+      <div class="fg">
+        <label>Source</label>
+        <select onchange="updateSalaryBoardField('source_kind',this.value)">
+          ${['Scanner','Manual'].map((option)=>`<option value="${option}" ${salaryBoardDraft.source_kind===option?'selected':''}>${option}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem;margin-bottom:1rem">
+      <div class="overview-mini-card">
+        <span class="label">Income</span>
+        <span class="value">${fmt(totals.income)}</span>
+        <span class="meta">Monthly income lines</span>
+      </div>
+      <div class="overview-mini-card">
+        <span class="label">Deductions</span>
+        <span class="value" style="color:var(--red)">${fmt(totals.deductions)}</span>
+        <span class="meta">Monthly deduction lines</span>
+      </div>
+      <div class="overview-mini-card">
+        <span class="label">Net</span>
+        <span class="value" style="color:var(--green)">${fmt(totals.net)}</span>
+        <span class="meta">${escapeHtml(salaryBoardDraft.date || activeSlip.date || '')}</span>
+      </div>
+    </div>
+
+    <div style="display:grid;gap:.65rem">
+      ${salaryBoardEdits.map((row, index)=>`
+        <div style="padding:.85rem .9rem;border-radius:12px;border:1px solid var(--border);background:var(--bg3);display:grid;gap:.55rem">
+          <div style="display:grid;grid-template-columns:minmax(0,1.65fr) 140px 150px auto;gap:.55rem;align-items:center">
+            <input value="${escapeHtml(row.component || '')}" onchange="updateSalaryBoardComponentName(${index},this.value)" placeholder="Component name"
+              style="min-width:0;background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:.82rem;padding:.42rem .55rem">
+            <select onchange="updateSalaryBoardComponentType(${index},this.value)" style="background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:.8rem;padding:.42rem .5rem">
+              ${['income','deduction'].map((type)=>`<option value="${type}" ${normalizeSalaryComponentType(row.type)===type?'selected':''}>${type==='income'?'Income':'Deduction'}</option>`).join('')}
+            </select>
+            <input type="number" value="${Number(row.monthly_amount || 0)}" onchange="updateSalaryBoardComponentAmount(${index},this.value)" placeholder="0"
+              style="background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:${normalizeSalaryComponentType(row.type)==='deduction'?'var(--red)':'var(--gold)'};font-family:inherit;font-size:.84rem;font-weight:700;padding:.42rem .55rem;text-align:right">
+            <button type="button" class="btn btn-red btn-sm" onclick="removeSalaryBoardComponent(${index})">Remove</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap">
+            <div style="font-size:.72rem;color:var(--text3)">${normalizeSalaryComponentType(row.type) === 'deduction' ? 'Deduction component' : 'Income component'}</div>
+            <div style="font-size:.72rem;color:var(--text3)">Annualized: <strong style="color:var(--text)">${fmt(row.annual_amount || (toNumber(row.monthly_amount) * 12))}</strong></div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="fg" style="margin-top:1rem">
+      <label>Notes</label>
+      <textarea onchange="updateSalaryBoardField('notes',this.value)">${escapeHtml(salaryBoardDraft.notes || '')}</textarea>
+    </div>
+    <div class="overview-caption">This panel edits the saved slip directly. Change component names, switch between income and deduction, add or remove rows, then save here.</div>
+  `;
+}
+
+function focusSalaryBoardEditor(slipId=''){
+  const nextSlip = DATA.salary_slips.find((slip)=>slip.id === slipId);
+  if(!nextSlip) return;
+  if(salaryBoardDirty && salaryBoardEditingId && salaryBoardEditingId !== slipId){
+    if(!confirm('Discard unsaved salary changes and open another slip?')) return;
+  }
+  hydrateSalaryBoardEditor(nextSlip);
+  renderSalaryComponentBoard(getLatestSalarySlip());
+  document.getElementById('salaryComponentBoard')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function updateSalaryBoardField(field, value){
+  salaryBoardDraft[field] = value;
+  salaryBoardDirty = true;
+}
+
+function updateSalaryBoardComponentName(index, value){
+  if(!salaryBoardEdits[index]) return;
+  salaryBoardEdits[index].component = value;
+  salaryBoardDirty = true;
+}
+
+function updateSalaryBoardComponentType(index, value){
+  if(!salaryBoardEdits[index]) return;
+  salaryBoardEdits[index].type = normalizeSalaryComponentType(value);
+  salaryBoardDirty = true;
+  renderSalaryComponentBoard(getLatestSalarySlip());
+}
+
+function updateSalaryBoardComponentAmount(index, value){
+  if(!salaryBoardEdits[index]) return;
+  const amount = toNumber(value);
+  salaryBoardEdits[index].monthly_amount = amount;
+  salaryBoardEdits[index].annual_amount = amount * 12;
+  salaryBoardDirty = true;
+  renderSalaryComponentBoard(getLatestSalarySlip());
+}
+
+function addSalaryBoardComponent(){
+  salaryBoardEdits.push(createSalaryScanEditRow({ component:'', type:'income', monthly_amount:0, annual_amount:0 }));
+  salaryBoardDirty = true;
+  renderSalaryComponentBoard(getLatestSalarySlip());
+}
+
+function removeSalaryBoardComponent(index){
+  salaryBoardEdits.splice(index, 1);
+  salaryBoardDirty = true;
+  renderSalaryComponentBoard(getLatestSalarySlip());
+}
+
+function resetSalaryBoardEditor(){
+  const activeSlip = DATA.salary_slips.find((slip)=>slip.id === salaryBoardEditingId) || getLatestSalarySlip();
+  if(!activeSlip) return;
+  hydrateSalaryBoardEditor(activeSlip);
+  renderSalaryComponentBoard(getLatestSalarySlip());
+}
+
+function saveSalaryBoardEditor(){
+  const activeSlip = DATA.salary_slips.find((slip)=>slip.id === salaryBoardEditingId);
+  if(!activeSlip){
+    toast('Choose a salary slip first', 'err');
+    return;
+  }
+  const totals = getSalaryReviewTotals(salaryBoardEdits);
+  if(!totals.activeRows.length){
+    toast('Add at least one salary component before saving', 'err');
+    return;
+  }
+  if(!String(salaryBoardDraft.employer || '').trim()){
+    toast('Enter the employer name before saving', 'err');
+    return;
+  }
+  const existingIndex = DATA.salary_slips.findIndex((entry)=>entry.id === activeSlip.id);
+  if(existingIndex < 0){
+    toast('Could not find the selected salary slip', 'err');
+    return;
+  }
+  const nextItem = buildSalarySlipRecord({
+    existingItem: DATA.salary_slips[existingIndex],
+    employer: salaryBoardDraft.employer,
+    payPeriod: salaryBoardDraft.pay_period,
+    sourceKind: salaryBoardDraft.source_kind,
+    notes: salaryBoardDraft.notes,
+    rows: salaryBoardEdits,
+    dateValue: salaryBoardDraft.date
+  }).nextItem;
+  DATA.salary_slips[existingIndex] = nextItem;
+  saveData();
+  salaryBoardDirty = false;
+  salaryBoardEditingId = nextItem.id;
+  queueCloudSync('salary_slips', nextItem, 'update');
+  renderAll();
+  toast('Salary slip updated');
 }
 
 // ═══════════════════════════════════════════
