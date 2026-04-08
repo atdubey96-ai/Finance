@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="40" x2="460" y2="472" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f0d48a"/>
+      <stop offset="0.48" stop-color="#d4a853"/>
+      <stop offset="1" stop-color="#8d63ff"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="120" y1="116" x2="390" y2="410" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#151724"/>
+      <stop offset="1" stop-color="#090a0e"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#090a0e"/>
+  <rect x="38" y="38" width="436" height="436" rx="102" fill="url(#bg)" opacity="0.14"/>
+  <rect x="86" y="86" width="340" height="340" rx="82" fill="url(#panel)" stroke="rgba(240,212,138,0.28)" stroke-width="4"/>
+  <rect x="126" y="126" width="260" height="260" rx="56" fill="#101118"/>
+  <path d="M192 336 248 176h28l56 160h-31l-11-35h-56l-11 35Zm50-60h40l-20-63Z" fill="#f6efe1"/>
+  <path d="M177 156h158" stroke="#d4a853" stroke-width="10" stroke-linecap="round" opacity="0.8"/>
+  <circle cx="350" cy="161" r="12" fill="#34d399"/>
+</svg>
