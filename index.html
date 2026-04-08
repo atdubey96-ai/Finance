@@ -105,6 +105,12 @@ a{color:var(--gold);text-decoration:none}
 .tw{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
 th{font-size:.65rem;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:.65rem .4rem;text-align:left;border-bottom:1px solid var(--border);font-weight:600}
+.sortable-header{padding:.55rem .4rem}
+.sort-btn{display:inline-flex;align-items:center;gap:.35rem;width:100%;background:none;border:none;padding:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer}
+.sort-btn:hover{color:var(--text2)}
+.sortable-header.active .sort-btn{color:var(--gold)}
+.sort-icon{font-size:.72rem;color:var(--text3);line-height:1}
+.sortable-header.active .sort-icon{color:var(--gold)}
 td{padding:.55rem .4rem;border-bottom:1px solid rgba(255,255,255,.025);font-size:.82rem;color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 tr.clickable{cursor:pointer;transition:background .15s}
 tr.clickable:hover td{color:var(--text);background:rgba(212,168,83,.03)}
@@ -752,14 +758,10 @@ body.auth-ready .auth-screen{display:none}
   <div class="g g4" id="stockSummary"></div>
   <div class="card" id="stockControlBar" style="margin-top:1rem"></div>
   <div class="stitle">All Indian Stocks (NSE/BSE)</div>
-  <div class="card" id="stockINDefaultSection"><div class="tw"><table><thead><tr>
-    <th>Ticker</th><th>Company</th><th>Broker</th><th>Sector</th><th>Qty</th><th>Avg</th><th>CMP</th><th>Invested</th><th>Current</th><th>P&L</th><th>%</th><th></th>
-  </tr></thead><tbody id="stockINBody"></tbody></table></div></div>
+  <div class="card" id="stockINDefaultSection"><div class="tw"><table><thead><tr id="stockINHead"></tr></thead><tbody id="stockINBody"></tbody></table></div></div>
   <div id="stockINBrokerSections"></div>
   <div class="stitle">US Stocks (NYSE/NASDAQ)</div>
-  <div class="card"><div class="tw"><table><thead><tr>
-    <th>Ticker</th><th>Company</th><th>Broker</th><th>Sector</th><th>Qty</th><th>Avg</th><th>CMP</th><th>Invested</th><th>Current</th><th>P&L</th><th>%</th><th></th>
-  </tr></thead><tbody id="stockUSBody"></tbody></table></div></div>
+  <div class="card"><div class="tw"><table><thead><tr id="stockUSHead"></tr></thead><tbody id="stockUSBody"></tbody></table></div></div>
   <div class="g g2" style="margin-top:1rem">
     <div class="card"><div class="ct">Sector Split — India</div><div class="chw h250"><canvas id="chSectorIN"></canvas></div></div>
     <div class="card"><div class="ct">Sector Split — US</div><div class="chw h250"><canvas id="chSectorUS"></canvas></div></div>
@@ -1243,6 +1245,7 @@ let salaryBoardEditingId = null;
 let salaryBoardEdits = [];
 let salaryBoardDraft = { date:'', employer:'', pay_period:'', notes:'', source_kind:'Manual' };
 let salaryBoardDirty = false;
+let STOCK_SORT_STATE = { key:'', dir:'asc' };
 
 function cloneDefaults(){
   return JSON.parse(JSON.stringify(DEFAULTS));
@@ -1964,7 +1967,7 @@ async function initPWA(){
 function syncResponsiveTables(){
   document.querySelectorAll('table').forEach((table)=>{
     const headers = Array.from(table.querySelectorAll('thead th')).map((th, index)=>{
-      const text = th.textContent.replace(/\s+/g,' ').trim();
+      const text = (th.dataset.label || th.textContent).replace(/\s+/g,' ').trim();
       return text || (index === 0 ? 'Item' : 'Action');
     });
     table.querySelectorAll('tbody tr').forEach((row)=>{
@@ -3218,6 +3221,87 @@ function getStockBrokerName(stock){
   return String(stock?.broker || '').trim() || 'Unassigned';
 }
 
+function getStockSortDefaultDirection(key=''){
+  return ['ticker','company','broker','sector'].includes(key) ? 'asc' : 'desc';
+}
+
+function getStockSortValue(stock={}, key=''){
+  switch(key){
+    case 'ticker': return String(stock.ticker || '').trim().toLowerCase();
+    case 'company': return String(stock.company || '').trim().toLowerCase();
+    case 'broker': return String(getStockBrokerName(stock)).trim().toLowerCase();
+    case 'sector': return String(stock.sector || '').trim().toLowerCase();
+    case 'qty': return toNumber(stock.qty);
+    case 'avg_price': return toNumber(stock.avg_price);
+    case 'current_price': return toNumber(stock.current_price);
+    case 'invested': return toNumber(stock.invested);
+    case 'current_value': return toNumber(stock.current_value);
+    case 'pnl': return toNumber(stock.pnl, toNumber(stock.current_value) - toNumber(stock.invested));
+    case 'pnl_pct': return toNumber(stock.pnl_pct);
+    default: return '';
+  }
+}
+
+function compareStockSortValues(left, right){
+  if(typeof left === 'number' && typeof right === 'number'){
+    return left - right;
+  }
+  return String(left || '').localeCompare(String(right || ''), 'en-IN', { sensitivity:'base', numeric:true });
+}
+
+function sortStocksForView(stocks=[]){
+  const { key, dir } = STOCK_SORT_STATE;
+  if(!key) return [...stocks];
+  const multiplier = dir === 'asc' ? 1 : -1;
+  return [...stocks].sort((left, right)=>{
+    const primary = compareStockSortValues(getStockSortValue(left, key), getStockSortValue(right, key));
+    if(primary !== 0) return primary * multiplier;
+    return String(left.ticker || '').localeCompare(String(right.ticker || ''), 'en-IN', { sensitivity:'base', numeric:true });
+  });
+}
+
+function toggleStockSort(key=''){
+  if(!key) return;
+  if(STOCK_SORT_STATE.key === key){
+    STOCK_SORT_STATE.dir = STOCK_SORT_STATE.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    STOCK_SORT_STATE = { key, dir:getStockSortDefaultDirection(key) };
+  }
+  renderStocks();
+}
+
+function buildStockSortHeader(label='', key=''){
+  const active = STOCK_SORT_STATE.key === key;
+  const direction = active ? STOCK_SORT_STATE.dir : '';
+  const icon = active ? (direction === 'asc' ? '↑' : '↓') : '↕';
+  const ariaSort = active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none';
+  return `
+    <th data-label="${escapeHtml(label)}" class="sortable-header ${active ? 'active' : ''}" aria-sort="${ariaSort}">
+      <button type="button" class="sort-btn" onclick="toggleStockSort('${key}')">
+        <span>${escapeHtml(label)}</span>
+        <span class="sort-icon">${icon}</span>
+      </button>
+    </th>
+  `;
+}
+
+function buildStockTableHead(){
+  return [
+    buildStockSortHeader('Ticker', 'ticker'),
+    buildStockSortHeader('Company', 'company'),
+    buildStockSortHeader('Broker', 'broker'),
+    buildStockSortHeader('Sector', 'sector'),
+    buildStockSortHeader('Qty', 'qty'),
+    buildStockSortHeader('Avg', 'avg_price'),
+    buildStockSortHeader('CMP', 'current_price'),
+    buildStockSortHeader('Invested', 'invested'),
+    buildStockSortHeader('Current', 'current_value'),
+    buildStockSortHeader('P&L', 'pnl'),
+    buildStockSortHeader('%', 'pnl_pct'),
+    '<th data-label="Action"></th>'
+  ].join('');
+}
+
 function getFundPlatformName(fund){
   return String(fund?.platform || fund?.broker || '').trim() || 'Direct / Unassigned';
 }
@@ -3319,6 +3403,9 @@ function renderStocks(){
     })}
   `;
 
+  document.getElementById('stockINHead').innerHTML = buildStockTableHead();
+  document.getElementById('stockUSHead').innerHTML = buildStockTableHead();
+
   function stockRowsHtml(stocks, cur='₹'){
     if(!stocks.length) return '<tr><td colspan="12" class="empty-state">No stocks found for this broker view yet.</td></tr>';
     return stocks.map((stock)=>{
@@ -3341,8 +3428,9 @@ function renderStocks(){
   }
 
   const brokerSectionsHtml = filteredBrokerEntries.map(([broker, stocks])=>{
-    const invested = stocks.reduce((sum, item)=>sum + Number(item.invested||0), 0);
-    const current = stocks.reduce((sum, item)=>sum + Number(item.current_value||0), 0);
+    const sortedStocks = sortStocksForView(stocks);
+    const invested = sortedStocks.reduce((sum, item)=>sum + Number(item.invested||0), 0);
+    const current = sortedStocks.reduce((sum, item)=>sum + Number(item.current_value||0), 0);
     const pnl = current - invested;
     return `
       <div class="stitle" style="margin-top:1rem;font-size:.9rem">${broker}</div>
@@ -3356,8 +3444,8 @@ function renderStocks(){
           </div>
         </div>
         <div class="tw"><table><thead><tr>
-          <th>Ticker</th><th>Company</th><th>Broker</th><th>Sector</th><th>Qty</th><th>Avg</th><th>CMP</th><th>Invested</th><th>Current</th><th>P&L</th><th>%</th><th></th>
-        </tr></thead><tbody>${stockRowsHtml(stocks, 'auto')}</tbody></table></div>
+          ${buildStockTableHead()}
+        </tr></thead><tbody>${stockRowsHtml(sortedStocks, 'auto')}</tbody></table></div>
       </div>`;
   }).join('');
 
@@ -3367,8 +3455,8 @@ function renderStocks(){
       ? (brokerSectionsHtml || '<div class="card" style="margin-bottom:1rem"><div class="empty-state"><h4>No broker section found</h4><p>Try All Brokers or add more broker-tagged holdings.</p></div></div>')
       : '';
 
-  renderStockTable(filteredInStocks, 'stockINBody', '₹');
-  renderStockTable(usStocks, 'stockUSBody', '$');
+  renderStockTable(sortStocksForView(filteredInStocks), 'stockINBody', '₹');
+  renderStockTable(sortStocksForView(usStocks), 'stockUSBody', '$');
 
   // Sector charts
   function sectorChart(stocks, canvasId){
@@ -3381,6 +3469,7 @@ function renderStocks(){
   }
   sectorChart(filteredInStocks,'chSectorIN');
   sectorChart(usStocks,'chSectorUS');
+  syncResponsiveTables();
 }
 
 // ═══════════════════════════════════════════
