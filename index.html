@@ -6767,22 +6767,6 @@ async function aoGetQuote(symbolToken, exchange = 'NSE') {
            change: q.ltp - q.close, changePct: ((q.ltp - q.close)/q.close*100), volume: q.tradingSymbol };
 }
 
-// ── Symbol search via Angel One ──
-async function aoSearchSymbol(query) {
-  const token = await aoLogin();
-  const headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'Authorization': `Bearer ${token}`,
-    'X-UserType': 'USER',
-    'X-SourceID': 'WEB',
-    'X-PrivateKey': AO.apiKey
-  };
-  const r = await fetch(`${AO.base}/rest/secure/angelbroking/order/v1/searchScrip?exchange=NSE&searchscrip=${encodeURIComponent(query)}`, {headers});
-  const d = await r.json();
-  return d.data || [];
-}
-
 // ── Resolve ticker → Angel One symbol token (uses local map + API fallback) ──
 // Token map for top NSE stocks (symbolToken needed for quote API)
 const AO_TOKEN_MAP = {
@@ -6828,19 +6812,360 @@ const AO_TOKEN_MAP = {
   'UNOMINDA':'14413','VBL':'9389','WAAREEENER':'19234','WIPRO':'3787',
 };
 
-async function aoGetPriceByTicker(ticker) {
-  ticker = ticker.toUpperCase().trim();
-  let symbolToken = AO_TOKEN_MAP[ticker];
+const AO_SEARCH_RESULTS_CACHE = Object.create(null);
+const AO_QUOTE_BATCH_SIZE = 40;
+const AO_RESOLVE_CONCURRENCY = 6;
+const AO_FALLBACK_CONCURRENCY = 4;
+const AO_DUPLICATE_TOKENS = (() => {
+  const counts = Object.create(null);
+  Object.values(AO_TOKEN_MAP).forEach((token)=>{
+    const key = String(token || '');
+    if(!key) return;
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  return new Set(Object.entries(counts).filter(([, count])=>count > 1).map(([token])=>token));
+})();
 
-  // If not in local map, search via API
-  if (!symbolToken) {
-    const results = await aoSearchSymbol(ticker);
-    const match = results.find(r => r.tradingsymbol === ticker && r.exch_seg === 'NSE');
-    if (match) symbolToken = match.symboltoken;
+function getBaseTickerSymbol(value=''){
+  return String(value || '').split('.')[0].trim().toUpperCase();
+}
+
+function isUSStockItem(stock={}){
+  const market = String(stock?.market || '').trim().toUpperCase();
+  const currency = String(stock?.currency || '').trim().toUpperCase();
+  return ['US','NYSE','NASDAQ'].includes(market) || currency === 'USD';
+}
+
+function getPreferredIndianExchange(stock={}){
+  return String(stock?.market || '').trim().toUpperCase() === 'BSE' ? 'BSE' : 'NSE';
+}
+
+function getAoSearchResultToken(row={}){
+  return String(row.symboltoken || row.symbolToken || '').trim();
+}
+
+function getAoSearchResultExchange(row={}){
+  return String(row.exch_seg || row.exchange || '').trim().toUpperCase();
+}
+
+function getAoSearchResultSymbol(row={}){
+  return getBaseTickerSymbol(row.tradingsymbol || row.tradingSymbol || row.symbol || '');
+}
+
+function scoreAoSearchResult(row={}, ticker='', exchange='NSE'){
+  let score = 0;
+  if(getAoSearchResultSymbol(row) === ticker) score += 100;
+  if(getAoSearchResultExchange(row) === exchange) score += 20;
+  if(getAoSearchResultToken(row)) score += 5;
+  if(String(row.name || '').toUpperCase().includes(ticker)) score += 2;
+  return score;
+}
+
+function pickAoSearchResult(results=[], ticker='', exchange='NSE'){
+  const ranked = (results || [])
+    .map((row)=>({ row, score:scoreAoSearchResult(row, ticker, exchange) }))
+    .filter((entry)=>entry.score >= 100)
+    .sort((left, right)=>right.score - left.score);
+  return ranked[0]?.row || null;
+}
+
+function getSavedAoInstrument(stock={}){
+  const symbolToken = String(stock?.ao_symbol_token || '').trim();
+  if(!symbolToken) return null;
+  return {
+    symbolToken,
+    exchange: String(stock?.ao_exchange || getPreferredIndianExchange(stock)).toUpperCase(),
+    tradingSymbol: getBaseTickerSymbol(stock?.ao_trading_symbol || stock?.ticker),
+    source:'saved'
+  };
+}
+
+function rememberAoInstrument(stock={}, instrument={}){
+  if(!stock || !instrument?.symbolToken) return;
+  stock.ao_symbol_token = String(instrument.symbolToken);
+  stock.ao_exchange = String(instrument.exchange || getPreferredIndianExchange(stock)).toUpperCase();
+  stock.ao_trading_symbol = instrument.tradingSymbol || getBaseTickerSymbol(stock.ticker);
+}
+
+function clearAoInstrument(stock={}){
+  if(!stock) return;
+  delete stock.ao_symbol_token;
+  delete stock.ao_exchange;
+  delete stock.ao_trading_symbol;
+}
+
+function getMappedAoInstrument(ticker='', exchange='NSE'){
+  if(exchange !== 'NSE') return null;
+  const symbolToken = AO_TOKEN_MAP[ticker];
+  if(!symbolToken || AO_DUPLICATE_TOKENS.has(String(symbolToken))) return null;
+  return { symbolToken:String(symbolToken), exchange:'NSE', tradingSymbol:ticker, source:'map' };
+}
+
+// ── Symbol search via Angel One ──
+async function aoSearchSymbol(query, exchange='NSE') {
+  const ticker = getBaseTickerSymbol(query);
+  const cacheKey = `${exchange}:${ticker}`;
+  if(AO_SEARCH_RESULTS_CACHE[cacheKey]) return AO_SEARCH_RESULTS_CACHE[cacheKey];
+
+  const token = await aoLogin();
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${token}`,
+    'X-UserType': 'USER',
+    'X-SourceID': 'WEB',
+    'X-PrivateKey': AO.apiKey
+  };
+  const r = await fetch(`${AO.base}/rest/secure/angelbroking/order/v1/searchScrip?exchange=${exchange}&searchscrip=${encodeURIComponent(ticker)}`, {headers});
+  if(!r.ok) throw new Error(`Angel One search HTTP ${r.status}`);
+  const d = await r.json();
+  if(d?.status === false && !Array.isArray(d.data)) throw new Error(d.message || `Angel One search failed for ${ticker}`);
+  const results = Array.isArray(d.data) ? d.data : [];
+  AO_SEARCH_RESULTS_CACHE[cacheKey] = results;
+  return results;
+}
+
+async function resolveAoInstrument(stock={}, { forceSearch=false } = {}){
+  if(!stock || isUSStockItem(stock)) return null;
+  const ticker = getBaseTickerSymbol(stock.ticker);
+  if(!ticker) return null;
+
+  const preferredExchange = getPreferredIndianExchange(stock);
+  const exchanges = preferredExchange === 'BSE' ? ['BSE','NSE'] : ['NSE','BSE'];
+
+  if(!forceSearch){
+    const saved = getSavedAoInstrument(stock);
+    if(saved) return saved;
+    const mapped = getMappedAoInstrument(ticker, preferredExchange);
+    if(mapped) return mapped;
+  } else {
+    clearAoInstrument(stock);
   }
 
-  if (!symbolToken) throw new Error(`Symbol token not found for ${ticker}`);
-  const quote = await aoGetQuote(symbolToken, 'NSE');
+  for(const exchange of exchanges){
+    try{
+      const match = pickAoSearchResult(await aoSearchSymbol(ticker, exchange), ticker, exchange);
+      if(match){
+        const instrument = {
+          symbolToken:getAoSearchResultToken(match),
+          exchange,
+          tradingSymbol:getAoSearchResultSymbol(match) || ticker,
+          source:'search'
+        };
+        rememberAoInstrument(stock, instrument);
+        return instrument;
+      }
+    } catch(error){
+      console.warn(`Angel One search failed for ${ticker} on ${exchange}:`, error.message);
+    }
+  }
+
+  return forceSearch ? null : getMappedAoInstrument(ticker, preferredExchange);
+}
+
+async function aoGetQuotesForExchange(exchange='NSE', symbolTokens=[]){
+  const uniqueTokens = [...new Set((symbolTokens || []).map((token)=>String(token || '').trim()).filter(Boolean))];
+  const quoteMap = new Map();
+  if(!uniqueTokens.length) return quoteMap;
+
+  const token = await aoLogin();
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${token}`,
+    'X-UserType': 'USER',
+    'X-SourceID': 'WEB',
+    'X-PrivateKey': AO.apiKey
+  };
+
+  for(let start = 0; start < uniqueTokens.length; start += AO_QUOTE_BATCH_SIZE){
+    const batch = uniqueTokens.slice(start, start + AO_QUOTE_BATCH_SIZE);
+    const body = JSON.stringify({ mode:'FULL', exchangeTokens:{ [exchange]: batch } });
+    const r = await fetch(`${AO.base}/rest/secure/angelbroking/market/v1/quote/`, { method:'POST', headers, body });
+    if(!r.ok) throw new Error(`Angel One quote HTTP ${r.status}`);
+    const d = await r.json();
+    if(d?.status === false && !Array.isArray(d.data?.fetched)) throw new Error(d.message || `Angel One quote failed for ${exchange}`);
+    const fetched = Array.isArray(d.data?.fetched) ? d.data.fetched : [];
+    fetched.forEach((row)=>{
+      const symbolToken = String(row.symbolToken || row.symboltoken || '').trim();
+      const price = toNumber(row.ltp);
+      if(!symbolToken || !price) return;
+      const close = toNumber(row.close, row.open, price);
+      quoteMap.set(`${exchange}:${symbolToken}`, {
+        price,
+        open: toNumber(row.open, price),
+        close,
+        high: toNumber(row.high, price),
+        low: toNumber(row.low, price),
+        change: +(price - close).toFixed(2),
+        changePct: close ? +(((price - close) / close) * 100).toFixed(2) : 0,
+        currency:'INR',
+        provider:`Angel One ${exchange}`
+      });
+    });
+  }
+
+  return quoteMap;
+}
+
+async function aoFetchQuotesForGroups(groups={}){
+  const merged = new Map();
+  for(const [exchange, tokens] of Object.entries(groups || {})){
+    try{
+      const quoteMap = await aoGetQuotesForExchange(exchange, tokens);
+      quoteMap.forEach((quote, key)=>merged.set(key, quote));
+    } catch(error){
+      console.warn(`Angel One batch failed for ${exchange}:`, error.message);
+    }
+  }
+  return merged;
+}
+
+async function runAsyncPool(items=[], limit=4, worker=async()=>null){
+  if(!items.length) return [];
+  const results = new Array(items.length);
+  let cursor = 0;
+  const runners = Array.from({ length:Math.min(limit, items.length) }, async ()=>{
+    while(true){
+      const index = cursor++;
+      if(index >= items.length) break;
+      results[index] = await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
+function buildStooqCandidatesForStock(stock={}){
+  const ticker = getBaseTickerSymbol(stock.ticker);
+  if(!ticker) return [];
+  const lower = ticker.toLowerCase();
+  const candidates = isUSStockItem(stock)
+    ? [
+        { symbol:`${lower}.us`, provider:'Stooq US', currency:'USD' },
+        { symbol:lower, provider:'Stooq Global', currency:String(stock.currency || 'USD').toUpperCase() || 'USD' }
+      ]
+    : [
+        { symbol:`${lower}.in`, provider:'Stooq IN', currency:'INR' },
+        { symbol:lower, provider:'Stooq Global', currency:'INR' }
+      ];
+  const seen = new Set();
+  return candidates.filter((candidate)=>{
+    if(seen.has(candidate.symbol)) return false;
+    seen.add(candidate.symbol);
+    return true;
+  });
+}
+
+async function fetchStooqQuote(candidate={}){
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 6000);
+  try{
+    const r = await fetch(`https://stooq.com/q/l/?s=${encodeURIComponent(candidate.symbol)}&f=sd2t2ohlcv&h&e=json`, { signal:ctrl.signal });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    const row = d?.symbols?.[0];
+    const price = toNumber(row?.close);
+    if(!price) throw new Error('No close price');
+    const open = toNumber(row?.open, price);
+    return {
+      price,
+      change: +(price - open).toFixed(2),
+      changePct: open ? +(((price - open) / open) * 100).toFixed(2) : 0,
+      currency: candidate.currency || 'INR',
+      provider: candidate.provider || 'Stooq'
+    };
+  } finally {
+    clearTimeout(tid);
+  }
+}
+
+async function fetchFallbackQuoteForStock(stock={}){
+  let lastError = null;
+  for(const candidate of buildStooqCandidatesForStock(stock)){
+    try{
+      return await fetchStooqQuote(candidate);
+    } catch(error){
+      lastError = error;
+      console.warn(`Fallback quote failed for ${stock.ticker || candidate.symbol} via ${candidate.provider}:`, error.message);
+    }
+  }
+  throw lastError || new Error('All fallback price sources failed');
+}
+
+function applyQuoteToStock(stock, quote={}){
+  const price = toNumber(quote.price);
+  if(!price) return false;
+  const invested = toNumber(stock.invested);
+  const qty = toNumber(stock.qty);
+  stock.current_price = price;
+  stock.current_value = qty * price;
+  stock.pnl = stock.current_value - invested;
+  stock.pnl_pct = invested ? +((stock.pnl / invested) * 100).toFixed(2) : 0;
+  stock.day_change = toNumber(quote.change);
+  stock.day_change_pct = toNumber(quote.changePct);
+  stock.last_updated = new Date().toISOString();
+  stock.price_provider = quote.provider || 'Live';
+  stock.price_error = '';
+  if(quote.currency) stock.currency = quote.currency;
+  return true;
+}
+
+function markStockPriceError(stock, message='Price unavailable'){
+  if(!stock) return;
+  stock.price_error = String(message || 'Price unavailable');
+}
+
+function buildQuoteLookupStock(symbolRaw=''){
+  const symbol = String(symbolRaw || '').trim();
+  const upper = symbol.toUpperCase();
+  const market = upper.endsWith('.BO') ? 'BSE'
+    : upper.endsWith('.NS') ? 'NSE'
+    : upper.endsWith('.US') ? 'US'
+    : 'NSE';
+  const currency = market === 'US' ? 'USD' : 'INR';
+  return { ticker:getBaseTickerSymbol(symbol), market, currency, qty:1, invested:0 };
+}
+
+async function getBestLiveQuoteForStock(stock={}, { forceSearch=false, skipAngelOne=false } = {}){
+  const target = stock || {};
+  let lastError = null;
+
+  if(!skipAngelOne && !isUSStockItem(target)){
+    try{
+      const instrument = await resolveAoInstrument(target, { forceSearch });
+      if(instrument){
+        rememberAoInstrument(target, instrument);
+        const quoteMap = await aoGetQuotesForExchange(instrument.exchange, [instrument.symbolToken]);
+        const quote = quoteMap.get(`${instrument.exchange}:${instrument.symbolToken}`);
+        if(quote) return quote;
+        clearAoInstrument(target);
+      }
+    } catch(error){
+      lastError = error;
+      console.warn(`Angel One quote failed for ${target.ticker}:`, error.message);
+    }
+
+    if(!forceSearch){
+      try{
+        return await getBestLiveQuoteForStock(target, { forceSearch:true, skipAngelOne:false });
+      } catch(error){
+        lastError = error;
+      }
+    }
+  }
+
+  try{
+    return await fetchFallbackQuoteForStock(target);
+  } catch(error){
+    lastError = error;
+  }
+
+  throw lastError || new Error('All price sources failed');
+}
+
+async function aoGetPriceByTicker(ticker) {
+  const quote = await getBestLiveQuoteForStock({ ticker, market:'NSE', currency:'INR', qty:1, invested:0 });
   return { price: quote.price, change: quote.change, changePct: quote.changePct };
 }
 
@@ -6851,77 +7176,180 @@ async function aoRefreshAllPrices() {
   aoRefreshing = true;
   const btn = document.getElementById('aoRefreshBtn');
   if (btn) { btn.textContent = '⟳ Refreshing…'; btn.disabled = true; }
+  setSyncStatus('loading');
 
   try {
-    await aoLogin(); // ensure logged in once
-    let updated = 0, failed = 0;
-    const stocks = DATA.stocks.filter(s => !['NYSE','NASDAQ'].includes(s.market));
-
-    for (const stock of stocks) {
-      try {
-        const ticker = (stock.ticker || '').toUpperCase();
-        const q = await aoGetPriceByTicker(ticker);
-        stock.current_price = q.price;
-        stock.current_value = (stock.qty||0) * q.price;
-        stock.pnl           = stock.current_value - (stock.invested||0);
-        stock.pnl_pct       = stock.invested ? +((stock.pnl/stock.invested)*100).toFixed(2) : 0;
-        stock.day_change    = q.change;
-        stock.day_change_pct= q.changePct;
-        stock.last_updated  = new Date().toISOString();
-        updated++;
-      } catch(e) { failed++; console.warn(`Price fetch failed for ${stock.ticker}:`, e.message); }
+    if(!DATA.stocks.length){
+      toast('No stocks to refresh', 'info');
+      setSyncStatus('ok');
+      return;
     }
 
-    saveData(); renderAll();
-    const msg = `✓ ${updated} prices updated${failed ? `, ${failed} failed` : ''}`;
-    toast(msg);
-    setSyncStatus('ok');
+    const summary = { updated:0, fallback:0, failed:0, unresolved:0 };
+    const failures = [];
+    const stocks = [...DATA.stocks];
+    const indianStocks = stocks.filter((stock)=>!isUSStockItem(stock));
+    const usStocks = stocks.filter((stock)=>isUSStockItem(stock));
+    const fallbackQueue = [];
+    let angelOneReady = false;
+
+    try{
+      await aoLogin();
+      angelOneReady = true;
+    } catch(error){
+      console.warn('Angel One unavailable for bulk refresh:', error.message);
+    }
+
+    // Resolve all Indian instruments first, then fetch prices in exchange-level batches.
+    if(angelOneReady && indianStocks.length){
+      const groupedTokens = { NSE:[], BSE:[] };
+      const groupedRefs = new Map();
+      const initialResolution = await runAsyncPool(indianStocks, AO_RESOLVE_CONCURRENCY, async (stock)=>({
+        stock,
+        instrument: await resolveAoInstrument(stock)
+      }));
+
+      initialResolution.forEach(({ stock, instrument })=>{
+        if(!instrument){
+          fallbackQueue.push({ stock, reason:'unresolved_symbol' });
+          return;
+        }
+        rememberAoInstrument(stock, instrument);
+        groupedTokens[instrument.exchange] ||= [];
+        groupedTokens[instrument.exchange].push(instrument.symbolToken);
+        const key = `${instrument.exchange}:${instrument.symbolToken}`;
+        if(!groupedRefs.has(key)) groupedRefs.set(key, []);
+        groupedRefs.get(key).push({ stock, instrument });
+      });
+
+      const initialQuotes = await aoFetchQuotesForGroups(groupedTokens);
+      const retryQueue = [];
+      groupedRefs.forEach((refs, key)=>{
+        const quote = initialQuotes.get(key);
+        if(quote){
+          refs.forEach(({ stock })=>{
+            if(applyQuoteToStock(stock, quote)) summary.updated += 1;
+          });
+          return;
+        }
+        refs.forEach(({ stock })=>{
+          clearAoInstrument(stock);
+          retryQueue.push(stock);
+        });
+      });
+
+      if(retryQueue.length){
+        const retryResolution = await runAsyncPool(retryQueue, AO_RESOLVE_CONCURRENCY, async (stock)=>({
+          stock,
+          instrument: await resolveAoInstrument(stock, { forceSearch:true })
+        }));
+        const retryTokens = { NSE:[], BSE:[] };
+        const retryRefs = new Map();
+
+        retryResolution.forEach(({ stock, instrument })=>{
+          if(!instrument){
+            fallbackQueue.push({ stock, reason:'search_retry_failed' });
+            return;
+          }
+          rememberAoInstrument(stock, instrument);
+          retryTokens[instrument.exchange] ||= [];
+          retryTokens[instrument.exchange].push(instrument.symbolToken);
+          const key = `${instrument.exchange}:${instrument.symbolToken}`;
+          if(!retryRefs.has(key)) retryRefs.set(key, []);
+          retryRefs.get(key).push({ stock, instrument });
+        });
+
+        const retryQuotes = await aoFetchQuotesForGroups(retryTokens);
+        retryRefs.forEach((refs, key)=>{
+          const quote = retryQuotes.get(key);
+          if(quote){
+            refs.forEach(({ stock })=>{
+              if(applyQuoteToStock(stock, quote)) summary.updated += 1;
+            });
+            return;
+          }
+          refs.forEach(({ stock })=>{
+            clearAoInstrument(stock);
+            fallbackQueue.push({ stock, reason:'angel_one_quote_missing' });
+          });
+        });
+      }
+    } else {
+      indianStocks.forEach((stock)=>fallbackQueue.push({ stock, reason: angelOneReady ? 'skipped' : 'angel_one_unavailable' }));
+    }
+
+    usStocks.forEach((stock)=>fallbackQueue.push({ stock, reason:'us_fallback_only' }));
+
+    const dedupedFallbacks = [];
+    const seenFallbacks = new Set();
+    fallbackQueue.forEach((entry)=>{
+      const key = entry.stock?.id || `${getBaseTickerSymbol(entry.stock?.ticker)}|${entry.stock?.market || ''}`;
+      if(seenFallbacks.has(key)) return;
+      seenFallbacks.add(key);
+      dedupedFallbacks.push(entry);
+    });
+
+    const fallbackResults = await runAsyncPool(dedupedFallbacks, AO_FALLBACK_CONCURRENCY, async ({ stock, reason })=>{
+      try{
+        return { stock, quote:await fetchFallbackQuoteForStock(stock), reason };
+      } catch(error){
+        return { stock, error, reason };
+      }
+    });
+
+    fallbackResults.forEach(({ stock, quote, error, reason })=>{
+      if(quote){
+        if(applyQuoteToStock(stock, quote)) {
+          summary.updated += 1;
+          summary.fallback += 1;
+        }
+        return;
+      }
+      summary.failed += 1;
+      if(reason === 'unresolved_symbol' || reason === 'search_retry_failed') summary.unresolved += 1;
+      markStockPriceError(stock, error?.message || reason);
+      failures.push({
+        ticker: stock?.ticker || '—',
+        market: stock?.market || '—',
+        reason,
+        message: error?.message || 'Price unavailable'
+      });
+    });
+
+    saveData();
+    renderAll();
+
+    const parts = [`✓ ${summary.updated} updated`];
+    if(summary.fallback) parts.push(`${summary.fallback} via fallback`);
+    if(summary.failed) parts.push(`${summary.failed} failed`);
+    if(summary.unresolved) parts.push(`${summary.unresolved} unresolved`);
+    toast(parts.join(' · '), summary.updated ? 'ok' : 'err');
+    setSyncStatus(summary.updated ? 'ok' : 'err');
+
+    if(failures.length){
+      console.table(failures.slice(0, 60));
+      console.warn('Price refresh failures:', failures);
+    }
   } catch(e) {
-    toast('Angel One refresh failed: ' + e.message, 'err');
+    toast('Price refresh failed: ' + e.message, 'err');
     setSyncStatus('err');
     console.error('AO refresh error:', e);
+  } finally {
+    aoRefreshing = false;
+    if (btn) { btn.textContent = '⟳ Live Prices'; btn.disabled = false; }
   }
-  aoRefreshing = false;
-  if (btn) { btn.textContent = '⟳ Live Prices'; btn.disabled = false; }
 }
 
-// ── Override stkFetchQuoteData to use Angel One ──
+// ── Override stkFetchQuoteData to use Angel One + layered fallback ──
 async function stkFetchQuoteData(symbolRaw) {
-  const ticker = symbolRaw.split('.')[0].toUpperCase();
-
-  // ── Try Angel One first (prompts MPIN if not yet logged in) ──
-  try {
-    // This will trigger MPIN modal if AO.token is null
-    if (!AO.token || Date.now() >= AO.tokenExpiry) {
-      await aoLogin();
-    }
-    const q = await aoGetPriceByTicker(ticker);
-    return { price: q.price, change: q.change, changePct: q.changePct, currency: 'INR' };
-  } catch(e) {
-    console.warn(`Angel One price failed for ${ticker}:`, e.message);
-  }
-
-  // ── Fallback: Stooq (no auth, works from file://) ──
-  try {
-    const sym = ticker.toLowerCase();
-    const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 6000);
-    const r = await fetch(`https://stooq.com/q/l/?s=${sym}.in&f=sd2t2ohlcv&h&e=json`, {signal: ctrl.signal});
-    clearTimeout(tid);
-    if (r.ok) {
-      const d = await r.json();
-      const row = d?.symbols?.[0];
-      if (row?.close) {
-        const price = parseFloat(row.close);
-        const open  = parseFloat(row.open) || price;
-        return { price, change: +(price-open).toFixed(2), changePct: open ? +((price-open)/open*100).toFixed(2) : 0, currency: 'INR' };
-      }
-    }
-  } catch(e2) {
-    console.warn(`Stooq fallback failed for ${ticker}:`, e2.message);
-  }
-
-  throw new Error('All price sources failed');
+  const lookup = buildQuoteLookupStock(symbolRaw);
+  const quote = await getBestLiveQuoteForStock(lookup);
+  return {
+    price: quote.price,
+    change: quote.change,
+    changePct: quote.changePct,
+    currency: quote.currency || lookup.currency || 'INR'
+  };
 }
 
 // ── Auto-login on page load & show connection status ──
