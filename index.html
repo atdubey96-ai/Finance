@@ -5066,6 +5066,7 @@ function createScanEditRow(row, parsed, forcedType=''){
     invested: toNumber(row.invested_value, row.cost_value, row.invested, row.amount),
     sector: firstFilled(row.sector, row.category, row.asset_class, ''),
     market: firstFilled(row.market, row.exchange, ''),
+    symbol_full: firstFilled(row.symbol_full, row.symbol, ''),
     fund_house: firstFilled(row.fund_house, row.amc, ''),
     mode: firstFilled(row.mode, ''),
     isin: firstFilled(row.isin, '')
@@ -6178,6 +6179,8 @@ function wizardDirectSave(){
           ticker:(firstFilled(tx.ticker, tx.description?.split(' ')[0], 'SCAN')+'').toUpperCase(),
           company:firstFilled(tx.description, tx.ticker, 'Scanned Holding'),
           market:firstFilled(tx.market, 'NSE'),
+          symbol_full:firstFilled(tx.symbol_full, tx.ticker ? `${String(tx.ticker).toUpperCase()}.${String(firstFilled(tx.market, 'NSE')).toUpperCase()==='BSE' ? 'BO' : 'NS'}` : ''),
+          isin:firstFilled(tx.isin, ''),
           broker:wizardSource||'',
           sector:firstFilled(tx.sector, tx.category, ''),
           qty,
@@ -6286,6 +6289,8 @@ function wizardFinish(){
         ticker:       (tx.ticker||tx.description?.split(' ')[0]||'SCAN').toUpperCase(),
         company:      tx.description||tx.ticker||'',
         market:       tx.market||'NSE',
+        symbol_full:  firstFilled(tx.symbol_full, tx.ticker ? `${String(tx.ticker).toUpperCase()}.${String(tx.market||'NSE').toUpperCase()==='BSE' ? 'BO' : 'NS'}` : ''),
+        isin:         firstFilled(tx.isin, ''),
         sector:       tx.sector||tx.category||'',
         broker:       wizardSource,
         qty,
@@ -6861,19 +6866,90 @@ function getAoSearchResultSymbol(row={}){
   return getBaseTickerSymbol(row.tradingsymbol || row.tradingSymbol || row.symbol || '');
 }
 
-function scoreAoSearchResult(row={}, ticker='', exchange='NSE'){
+function normalizeStockSearchText(value=''){
+  return String(value || '')
+    .toUpperCase()
+    .replace(/[.&/()-]+/g, ' ')
+    .replace(/\b(LIMITED|LTD|PVT|PRIVATE|PLC|THE)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getSearchTokens(value=''){
+  return normalizeStockSearchText(value).split(' ').filter(Boolean);
+}
+
+function countSharedTokens(left='', right=''){
+  const leftTokens = new Set(getSearchTokens(left));
+  const rightTokens = new Set(getSearchTokens(right));
+  let overlap = 0;
+  leftTokens.forEach((token)=>{
+    if(rightTokens.has(token)) overlap += 1;
+  });
+  return overlap;
+}
+
+function getStockResolutionQueries(stock={}){
+  const queries = [];
+  const seen = new Set();
+  const add = (value='')=>{
+    const raw = String(value || '').trim();
+    if(!raw) return;
+    const normalized = raw.replace(/\.(NS|BO|US)$/i, '').trim();
+    const key = normalized.toUpperCase();
+    if(!key || seen.has(key)) return;
+    seen.add(key);
+    queries.push(normalized);
+  };
+
+  add(stock?.ao_trading_symbol);
+  add(stock?.symbol_full);
+  add(stock?.ticker);
+  add(stock?.company);
+  add(stock?.description);
+  return queries;
+}
+
+function scoreAoSearchResult(row={}, stock={}, query='', exchange='NSE'){
   let score = 0;
-  if(getAoSearchResultSymbol(row) === ticker) score += 100;
-  if(getAoSearchResultExchange(row) === exchange) score += 20;
+  const resultSymbol = getAoSearchResultSymbol(row);
+  const resultExchange = getAoSearchResultExchange(row);
+  const ticker = getBaseTickerSymbol(stock?.ticker || '');
+  const savedSymbol = getBaseTickerSymbol(stock?.symbol_full || '');
+  const querySymbol = getBaseTickerSymbol(query || '');
+  const companyName = normalizeStockSearchText(stock?.company || stock?.description || '');
+  const queryName = normalizeStockSearchText(query || '');
+  const resultName = normalizeStockSearchText(row.name || row.symbol || row.tradingsymbol || '');
+
+  if(resultSymbol && ticker && resultSymbol === ticker) score += 160;
+  if(resultSymbol && savedSymbol && resultSymbol === savedSymbol) score += 150;
+  if(resultSymbol && querySymbol && resultSymbol === querySymbol) score += 130;
+  if(resultSymbol && ticker && resultSymbol.startsWith(ticker)) score += 35;
+  if(resultSymbol && querySymbol && resultSymbol.startsWith(querySymbol)) score += 25;
+  if(resultExchange === exchange) score += 20;
   if(getAoSearchResultToken(row)) score += 5;
-  if(String(row.name || '').toUpperCase().includes(ticker)) score += 2;
+  if(resultName && companyName){
+    if(resultName === companyName) score += 100;
+    else if(resultName.includes(companyName) || companyName.includes(resultName)) score += 55;
+    const overlap = countSharedTokens(resultName, companyName);
+    if(overlap >= 3) score += 40;
+    else if(overlap >= 2) score += 22;
+    else if(overlap === 1) score += 8;
+  }
+  if(resultName && queryName){
+    if(resultName === queryName) score += 50;
+    else if(resultName.includes(queryName) || queryName.includes(resultName)) score += 26;
+    const overlap = countSharedTokens(resultName, queryName);
+    if(overlap >= 2) score += 18;
+    else if(overlap === 1) score += 6;
+  }
   return score;
 }
 
-function pickAoSearchResult(results=[], ticker='', exchange='NSE'){
+function pickAoSearchResult(results=[], stock={}, query='', exchange='NSE'){
   const ranked = (results || [])
-    .map((row)=>({ row, score:scoreAoSearchResult(row, ticker, exchange) }))
-    .filter((entry)=>entry.score >= 100)
+    .map((row)=>({ row, score:scoreAoSearchResult(row, stock, query, exchange) }))
+    .filter((entry)=>entry.score >= 70)
     .sort((left, right)=>right.score - left.score);
   return ranked[0]?.row || null;
 }
@@ -6936,8 +7012,9 @@ async function aoSearchSymbol(query, exchange='NSE') {
 
 async function resolveAoInstrument(stock={}, { forceSearch=false } = {}){
   if(!stock || isUSStockItem(stock)) return null;
-  const ticker = getBaseTickerSymbol(stock.ticker);
-  if(!ticker) return null;
+  const queries = getStockResolutionQueries(stock);
+  const ticker = getBaseTickerSymbol(stock.ticker || stock.symbol_full || queries[0] || '');
+  if(!queries.length) return null;
 
   const preferredExchange = getPreferredIndianExchange(stock);
   const exchanges = preferredExchange === 'BSE' ? ['BSE','NSE'] : ['NSE','BSE'];
@@ -6952,20 +7029,22 @@ async function resolveAoInstrument(stock={}, { forceSearch=false } = {}){
   }
 
   for(const exchange of exchanges){
-    try{
-      const match = pickAoSearchResult(await aoSearchSymbol(ticker, exchange), ticker, exchange);
-      if(match){
-        const instrument = {
-          symbolToken:getAoSearchResultToken(match),
-          exchange,
-          tradingSymbol:getAoSearchResultSymbol(match) || ticker,
-          source:'search'
-        };
-        rememberAoInstrument(stock, instrument);
-        return instrument;
+    for(const query of queries){
+      try{
+        const match = pickAoSearchResult(await aoSearchSymbol(query, exchange), stock, query, exchange);
+        if(match){
+          const instrument = {
+            symbolToken:getAoSearchResultToken(match),
+            exchange,
+            tradingSymbol:getAoSearchResultSymbol(match) || getBaseTickerSymbol(query) || ticker,
+            source:'search'
+          };
+          rememberAoInstrument(stock, instrument);
+          return instrument;
+        }
+      } catch(error){
+        console.warn(`Angel One search failed for ${query} on ${exchange}:`, error.message);
       }
-    } catch(error){
-      console.warn(`Angel One search failed for ${ticker} on ${exchange}:`, error.message);
     }
   }
 
@@ -7045,25 +7124,88 @@ async function runAsyncPool(items=[], limit=4, worker=async()=>null){
   return results;
 }
 
-function buildStooqCandidatesForStock(stock={}){
-  const ticker = getBaseTickerSymbol(stock.ticker);
-  if(!ticker) return [];
-  const lower = ticker.toLowerCase();
-  const candidates = isUSStockItem(stock)
-    ? [
-        { symbol:`${lower}.us`, provider:'Stooq US', currency:'USD' },
-        { symbol:lower, provider:'Stooq Global', currency:String(stock.currency || 'USD').toUpperCase() || 'USD' }
-      ]
-    : [
-        { symbol:`${lower}.in`, provider:'Stooq IN', currency:'INR' },
-        { symbol:lower, provider:'Stooq Global', currency:'INR' }
-      ];
+function buildQuoteSymbolsForStock(stock={}){
   const seen = new Set();
-  return candidates.filter((candidate)=>{
-    if(seen.has(candidate.symbol)) return false;
-    seen.add(candidate.symbol);
-    return true;
+  const symbols = [];
+  const add = (value='')=>{
+    const symbol = String(value || '').trim().toUpperCase();
+    if(!symbol || seen.has(symbol)) return;
+    seen.add(symbol);
+    symbols.push(symbol);
+  };
+
+  const symbolFull = String(stock?.symbol_full || '').trim().toUpperCase();
+  const root = getBaseTickerSymbol(symbolFull || stock?.ticker || '');
+  const preferredIndianSuffix = getPreferredIndianExchange(stock) === 'BSE' ? 'BO' : 'NS';
+  const secondaryIndianSuffix = preferredIndianSuffix === 'BO' ? 'NS' : 'BO';
+
+  add(symbolFull);
+  if(root){
+    if(isUSStockItem(stock)){
+      add(root);
+    } else {
+      add(`${root}.${preferredIndianSuffix}`);
+      add(`${root}.${secondaryIndianSuffix}`);
+      add(root);
+    }
+  }
+
+  return symbols;
+}
+
+function buildFallbackCandidatesForStock(stock={}){
+  const candidates = [];
+  const seen = new Set();
+  const add = (provider, symbol, currency)=>{
+    const key = `${provider}:${String(symbol || '').trim().toUpperCase()}`;
+    if(!symbol || seen.has(key)) return;
+    seen.add(key);
+    candidates.push({ provider, symbol, currency });
+  };
+
+  buildQuoteSymbolsForStock(stock).forEach((symbol)=>{
+    if(isUSStockItem(stock)){
+      add('Yahoo Finance', symbol.replace(/\.US$/i, ''), 'USD');
+      add('Stooq US', symbol.replace(/\.US$/i, '').toLowerCase()+'.us', 'USD');
+    } else {
+      add('Yahoo Finance', symbol, 'INR');
+      if(symbol.endsWith('.NS')) add('Stooq IN', symbol.replace(/\.NS$/i, '').toLowerCase()+'.in', 'INR');
+      if(symbol.endsWith('.BO')) add('Stooq Global', symbol.replace(/\.BO$/i, '').toLowerCase(), 'INR');
+    }
   });
+
+  return candidates;
+}
+
+async function fetchYahooQuote(candidate={}){
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 7000);
+  try{
+    const symbol = encodeURIComponent(String(candidate.symbol || '').trim());
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=5d&includePrePost=false`, { signal:ctrl.signal });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    const result = d?.chart?.result?.[0];
+    const meta = result?.meta || {};
+    const timestamps = Array.isArray(result?.timestamp) ? result.timestamp : [];
+    const quotes = result?.indicators?.quote?.[0] || {};
+    const closes = Array.isArray(quotes.close) ? quotes.close.filter((value)=>Number.isFinite(Number(value))) : [];
+    const opens = Array.isArray(quotes.open) ? quotes.open.filter((value)=>Number.isFinite(Number(value))) : [];
+    const previousClose = toNumber(meta.previousClose);
+    const price = toNumber(meta.regularMarketPrice, closes[closes.length - 1], previousClose);
+    if(!price) throw new Error('No live price');
+    const referenceClose = toNumber(previousClose, closes[closes.length - 2], opens[0], price);
+    return {
+      price,
+      change: +(price - referenceClose).toFixed(2),
+      changePct: referenceClose ? +(((price - referenceClose) / referenceClose) * 100).toFixed(2) : 0,
+      currency: candidate.currency || String(meta.currency || '').toUpperCase() || 'INR',
+      provider: candidate.provider || 'Yahoo Finance',
+      asOf: timestamps.length ? new Date(timestamps[timestamps.length - 1] * 1000).toISOString() : ''
+    };
+  } finally {
+    clearTimeout(tid);
+  }
 }
 
 async function fetchStooqQuote(candidate={}){
@@ -7091,8 +7233,11 @@ async function fetchStooqQuote(candidate={}){
 
 async function fetchFallbackQuoteForStock(stock={}){
   let lastError = null;
-  for(const candidate of buildStooqCandidatesForStock(stock)){
+  for(const candidate of buildFallbackCandidatesForStock(stock)){
     try{
+      if(candidate.provider === 'Yahoo Finance'){
+        return await fetchYahooQuote(candidate);
+      }
       return await fetchStooqQuote(candidate);
     } catch(error){
       lastError = error;
@@ -7133,7 +7278,7 @@ function buildQuoteLookupStock(symbolRaw=''){
     : upper.endsWith('.US') ? 'US'
     : 'NSE';
   const currency = market === 'US' ? 'USD' : 'INR';
-  return { ticker:getBaseTickerSymbol(symbol), market, currency, qty:1, invested:0 };
+  return { ticker:getBaseTickerSymbol(symbol), symbol_full: upper, market, currency, qty:1, invested:0 };
 }
 
 async function getBestLiveQuoteForStock(stock={}, { forceSearch=false, skipAngelOne=false } = {}){
@@ -7197,10 +7342,16 @@ async function aoRefreshAllPrices() {
     const summary = { updated:0, fallback:0, failed:0, unresolved:0 };
     const failures = [];
     const stocks = [...DATA.stocks];
+    const trackedStockKeys = new Map(stocks.map((stock, index)=>[stock, stock?.id || `${getBaseTickerSymbol(stock?.ticker || stock?.company || 'UNKNOWN')}|${stock?.broker || 'brokerless'}|${index}`]));
+    const processedStocks = new Set();
     const indianStocks = stocks.filter((stock)=>!isUSStockItem(stock));
     const usStocks = stocks.filter((stock)=>isUSStockItem(stock));
     const fallbackQueue = [];
     let angelOneReady = false;
+    const markProcessed = (stock)=>{
+      const key = trackedStockKeys.get(stock);
+      if(key) processedStocks.add(key);
+    };
 
     try{
       await aoLogin();
@@ -7237,7 +7388,10 @@ async function aoRefreshAllPrices() {
         const quote = initialQuotes.get(key);
         if(quote){
           refs.forEach(({ stock })=>{
-            if(applyQuoteToStock(stock, quote)) summary.updated += 1;
+            if(applyQuoteToStock(stock, quote)) {
+              summary.updated += 1;
+              markProcessed(stock);
+            }
           });
           return;
         }
@@ -7273,7 +7427,10 @@ async function aoRefreshAllPrices() {
           const quote = retryQuotes.get(key);
           if(quote){
             refs.forEach(({ stock })=>{
-              if(applyQuoteToStock(stock, quote)) summary.updated += 1;
+              if(applyQuoteToStock(stock, quote)) {
+                summary.updated += 1;
+                markProcessed(stock);
+              }
             });
             return;
           }
@@ -7293,8 +7450,9 @@ async function aoRefreshAllPrices() {
     const seenFallbackStocks = new Set();
     fallbackQueue.forEach((entry)=>{
       if(!entry?.stock) return;
-      if(seenFallbackStocks.has(entry.stock)) return;
-      seenFallbackStocks.add(entry.stock);
+      const stockKey = trackedStockKeys.get(entry.stock);
+      if(!stockKey || seenFallbackStocks.has(stockKey)) return;
+      seenFallbackStocks.add(stockKey);
       dedupedFallbacks.push(entry);
     });
 
@@ -7311,12 +7469,14 @@ async function aoRefreshAllPrices() {
         if(applyQuoteToStock(stock, quote)) {
           summary.updated += 1;
           summary.fallback += 1;
+          markProcessed(stock);
         }
         return;
       }
       summary.failed += 1;
       if(reason === 'unresolved_symbol' || reason === 'search_retry_failed') summary.unresolved += 1;
       markStockPriceError(stock, error?.message || reason);
+      markProcessed(stock);
       failures.push({
         ticker: stock?.ticker || '—',
         market: stock?.market || '—',
@@ -7324,6 +7484,50 @@ async function aoRefreshAllPrices() {
         message: error?.message || 'Price unavailable'
       });
     });
+
+    const unprocessedStocks = stocks.filter((stock)=>{
+      const key = trackedStockKeys.get(stock);
+      return key && !processedStocks.has(key);
+    });
+
+    if(unprocessedStocks.length){
+      console.warn('Running final live-price sweep for unprocessed holdings:', unprocessedStocks.map((stock)=>({
+        ticker: stock?.ticker || '—',
+        company: stock?.company || '—',
+        market: stock?.market || '—',
+        symbol_full: stock?.symbol_full || ''
+      })));
+
+      const finalSweepResults = await runAsyncPool(unprocessedStocks, AO_FALLBACK_CONCURRENCY, async (stock)=>{
+        try{
+          return { stock, quote:await getBestLiveQuoteForStock(stock, { forceSearch:true }), reason:'final_sweep' };
+        } catch(error){
+          return { stock, error, reason:'final_sweep' };
+        }
+      });
+
+      finalSweepResults.forEach(({ stock, quote, error, reason })=>{
+        if(quote){
+          if(applyQuoteToStock(stock, quote)) {
+            summary.updated += 1;
+            if(String(quote.provider || '').toLowerCase().includes('yahoo') || String(quote.provider || '').toLowerCase().includes('stooq')) {
+              summary.fallback += 1;
+            }
+            markProcessed(stock);
+          }
+          return;
+        }
+        summary.failed += 1;
+        markStockPriceError(stock, error?.message || reason);
+        markProcessed(stock);
+        failures.push({
+          ticker: stock?.ticker || '—',
+          market: stock?.market || '—',
+          reason,
+          message: error?.message || 'Price unavailable'
+        });
+      });
+    }
 
     saveData();
     renderAll();
