@@ -1932,7 +1932,7 @@ async function promptPWAInstall(){
 async function initPWA(){
   if('serviceWorker' in navigator && location.protocol.startsWith('https')){
     try{
-      const registration = await navigator.serviceWorker.register('/sw.js?v=20260408-salary-reset');
+      const registration = await navigator.serviceWorker.register('/sw.js?v=20260408-salary-pill-row', { updateViaCache: 'none' });
       if(registration?.update) registration.update();
       PWA_STATE.swRegistered = true;
     }catch(error){

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wcc-shell-v3-salary-reset';
+const CACHE_NAME = 'wcc-shell-v4-salary-pill-row';
 const CORE_ASSETS = [
   '/',
   '/index.html',
