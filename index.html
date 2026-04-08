@@ -2031,6 +2031,99 @@ function normalizeSalaryComponentType(type=''){
   return String(type || '').toLowerCase() === 'deduction' ? 'deduction' : 'income';
 }
 
+function normalizeSalaryComponentLabelKey(label=''){
+  return String(label || '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[_/.-]+/g, ' ')
+    .replace(/[()]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function canonicalizeSalaryComponentLabel(label=''){
+  const normalized = normalizeSalaryComponentLabelKey(label);
+  if(!normalized) return '';
+  if(['basic', 'basic pay', 'master basic'].includes(normalized)) return 'basic pay';
+  return normalized;
+}
+
+function isSalaryMetadataLabel(label=''){
+  const normalized = normalizeSalaryComponentLabelKey(label);
+  if(!normalized) return true;
+  if(/\bytd\b/.test(normalized)) return true;
+  return /^(employee (number|no|id|code)|emp (number|no|id|code)|pan|uan|bank account|account number|ifsc|designation|department|location|working days|present days|lop days|paid days|calendar days|pay period)$/.test(normalized);
+}
+
+function isSalarySummaryLabel(label=''){
+  const normalized = canonicalizeSalaryComponentLabel(label);
+  if(!normalized) return false;
+  return /^(gross|gross salary|gross pay|gross earnings|total earnings|earnings|total income|net pay|net salary|deductions|total deductions|other deductions|salary credited|gross payable)$/.test(normalized);
+}
+
+function getSalaryComponentRowScore(row={}){
+  const label = String(row.component || '').trim();
+  if(!label) return Number.NEGATIVE_INFINITY;
+  let score = 0;
+  if(/\s/.test(label)) score += 2;
+  if(!/[_.]/.test(label)) score += 2;
+  if(!isSalarySummaryLabel(label)) score += 3;
+  if(!isSalaryMetadataLabel(label)) score += 3;
+  if(/basic pay/i.test(label)) score += 4;
+  if(/master basic/i.test(label)) score -= 2;
+  score += Math.min(label.length, 24) / 24;
+  return score;
+}
+
+function sanitizeSalaryComponentRows(rows=[]){
+  const normalizedRows = (rows || []).map((row)=>({
+    ...createSalaryScanEditRow(row),
+    include: row?.include !== false
+  }));
+  const detailedCount = normalizedRows.filter((row)=>{
+    const label = String(row.component || '').trim();
+    return label && !isSalaryMetadataLabel(label) && !isSalarySummaryLabel(label);
+  }).length;
+  const deduped = new Map();
+
+  normalizedRows.forEach((row, index)=>{
+    const label = String(row.component || '').trim();
+    if(!label) return;
+    if(isSalaryMetadataLabel(label)) return;
+    if(detailedCount >= 3 && isSalarySummaryLabel(label)) return;
+
+    const amount = toNumber(row.monthly_amount);
+    const normalizedType = normalizeSalaryComponentType(row.type);
+    const canonicalLabel = canonicalizeSalaryComponentLabel(label || row.source_key || `component_${index + 1}`);
+    const dedupeKey = [normalizedType, canonicalLabel || `component_${index + 1}`, amount.toFixed(2)].join('|');
+    const candidate = {
+      ...row,
+      component: label,
+      type: normalizedType,
+      monthly_amount: amount,
+      annual_amount: toNumber(row.annual_amount, amount * 12),
+      notes: firstFilled(row.notes, ''),
+      source_key: firstFilled(row.source_key, '')
+    };
+    const existing = deduped.get(dedupeKey);
+    if(!existing || getSalaryComponentRowScore(candidate) > getSalaryComponentRowScore(existing)){
+      deduped.set(dedupeKey, candidate);
+    }
+  });
+
+  return Array.from(deduped.values());
+}
+
+function getSalaryComponentSignature(rows=[]){
+  return JSON.stringify((rows || []).map((row)=>({
+    component: String(row.component || '').trim(),
+    type: normalizeSalaryComponentType(row.type),
+    monthly_amount: toNumber(row.monthly_amount),
+    annual_amount: toNumber(row.annual_amount, toNumber(row.monthly_amount) * 12),
+    notes: firstFilled(row.notes, '')
+  })));
+}
+
 function inferSalaryPayPeriod(dateValue='', parsed={}){
   const direct = firstFilled(
     parsed?.pay_period,
@@ -2066,10 +2159,7 @@ function buildSalarySlipRecord({
   dateValue=''
 } = {}){
   const effectiveDate = firstFilled(dateValue, parsed?.date, new Date().toISOString().split('T')[0]);
-  const normalizedRows = rows.map((row)=>({
-    ...createSalaryScanEditRow(row),
-    include: row?.include !== false
-  }));
+  const normalizedRows = sanitizeSalaryComponentRows(rows);
   const totals = getSalaryReviewTotals(normalizedRows);
   const nextItem = {
     id: existingItem?.id || uid(),
@@ -2112,6 +2202,14 @@ function normalizeSalaryWorkspaceData(){
           ],
       dateValue: slip.date
     }).nextItem;
+    if(
+      Number(slip.gross_amount || 0) !== Number(built.gross_amount || 0) ||
+      Number(slip.deductions || 0) !== Number(built.deductions || 0) ||
+      Number(slip.net_amount || 0) !== Number(built.net_amount || 0) ||
+      getSalaryComponentSignature(slip.components || []) !== getSalaryComponentSignature(built.components || [])
+    ){
+      changed = true;
+    }
     return {
       ...slip,
       ...built,
@@ -3896,13 +3994,13 @@ function openModal(formKey, prefill={}){
 }
 function getIncomeSalaryComponents(item){
   if(item?.components?.length){
-    return item.components.map((row)=>createSalaryScanEditRow(row));
+    return sanitizeSalaryComponentRows(item.components);
   }
   if(item?.statement_data?.salary_components?.length){
-    return item.statement_data.salary_components.map((row)=>createSalaryScanEditRow(row));
+    return sanitizeSalaryComponentRows(item.statement_data.salary_components);
   }
   if(DATA.salary_structure?.length){
-    return DATA.salary_structure.map((row)=>createSalaryScanEditRow(row));
+    return sanitizeSalaryComponentRows(DATA.salary_structure);
   }
   const fallbackRows = [];
   if(toNumber(item?.gross_amount)) fallbackRows.push(createSalaryScanEditRow({ component:'Gross Pay', type:'income', monthly_amount:item.gross_amount, annual_amount:toNumber(item.gross_amount) * 12 }));
@@ -4718,6 +4816,7 @@ Rules:
 - Amounts must be numbers (no currency symbols, no commas)
 - Dates in YYYY-MM-DD format
 - For payslips, fill salary_data and list every visible line item in salary_components with component, type, and amount
+- For payslips, do not repeat the same component in multiple sections, and do not include metadata like employee number or summary rows like gross YTD when detailed line items are present
 - For investment statements, fill holdings array (not investment_data)
 - For bank/credit card statements, fill transactions and summary
 - For receipts/bills, create one transaction entry`;
@@ -4984,7 +5083,7 @@ function getParsedSalaryComponentRows(parsed){
       });
     });
   }
-  return rows;
+  return sanitizeSalaryComponentRows(rows);
 }
 
 function getSalaryRowsForReview(parsed){
@@ -5009,7 +5108,7 @@ function getSalaryRowsForReview(parsed){
   if(!fallbackRows.length){
     fallbackRows.push({ component:'Salary Component', type:'income', monthly_amount:0, annual_amount:0 });
   }
-  return fallbackRows;
+  return sanitizeSalaryComponentRows(fallbackRows);
 }
 
 function createSalaryScanEditRow(row){
