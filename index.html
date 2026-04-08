@@ -1807,7 +1807,16 @@ function loadData(){
     if(!Array.isArray(DATA[tab])) DATA[tab] = [];
   });
   DATA.quick_lists = normalizeQuickLists(DATA.quick_lists);
+  let changed = false;
+  DATA.stocks = DATA.stocks.map((stock)=>{
+    if(stock?.id) return stock;
+    changed = true;
+    return { ...stock, id:uid() };
+  });
   if(normalizeSalaryWorkspaceData()){
+    changed = true;
+  }
+  if(changed){
     localStorage.setItem(DB_KEY, JSON.stringify(DATA));
   }
 }
@@ -7281,11 +7290,11 @@ async function aoRefreshAllPrices() {
     usStocks.forEach((stock)=>fallbackQueue.push({ stock, reason:'us_fallback_only' }));
 
     const dedupedFallbacks = [];
-    const seenFallbacks = new Set();
+    const seenFallbackStocks = new Set();
     fallbackQueue.forEach((entry)=>{
-      const key = entry.stock?.id || `${getBaseTickerSymbol(entry.stock?.ticker)}|${entry.stock?.market || ''}`;
-      if(seenFallbacks.has(key)) return;
-      seenFallbacks.add(key);
+      if(!entry?.stock) return;
+      if(seenFallbackStocks.has(entry.stock)) return;
+      seenFallbackStocks.add(entry.stock);
       dedupedFallbacks.push(entry);
     });
 
@@ -7319,7 +7328,7 @@ async function aoRefreshAllPrices() {
     saveData();
     renderAll();
 
-    const parts = [`✓ ${summary.updated} updated`];
+    const parts = [`✓ ${summary.updated}/${stocks.length} updated`];
     if(summary.fallback) parts.push(`${summary.fallback} via fallback`);
     if(summary.failed) parts.push(`${summary.failed} failed`);
     if(summary.unresolved) parts.push(`${summary.unresolved} unresolved`);
