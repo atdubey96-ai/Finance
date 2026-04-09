@@ -3321,7 +3321,7 @@ function buildFilterOptions(options=[], selected='all', allLabel='All'){
     .join('');
 }
 
-function buildPortfolioControlCard({ title, copy, filterId, filterLabel, filterOptions=[], selectedFilter='all', viewId, selectedView='both', changeHandler }){
+function buildPortfolioControlCard({ title, copy, filterId, filterLabel, filterOptions=[], selectedFilter='all', viewId, selectedView='sections', changeHandler }){
   return `
     <div class="portfolio-control">
       <div class="portfolio-control-copy">
@@ -3357,7 +3357,7 @@ function renderStocks(){
   const namedBrokers = [...new Set(inStocks.map(getStockBrokerName).filter((name)=>name !== 'Unassigned'))];
   const hasBrokerSections = namedBrokers.length > 0;
   const currentBrokerFilter = document.getElementById('stockBrokerFilter')?.value || 'all';
-  const currentBrokerView = document.getElementById('stockBrokerView')?.value || (hasBrokerSections ? 'both' : 'combined');
+  const currentBrokerView = document.getElementById('stockBrokerView')?.value || (hasBrokerSections ? 'sections' : 'combined');
   const filteredInStocks = currentBrokerFilter === 'all'
     ? inStocks
     : inStocks.filter((stock)=>getStockBrokerName(stock) === currentBrokerFilter);
